@@ -80,26 +80,30 @@ class Queries:
 
 
 Queries.manifestations = {
-    "get_expression_id_by_manifestation_id": """
-MATCH (e:Expression)<-[:MANIFESTATION_OF]-(m:Manifestation {id: $manifestation_id})-[:HAS_TYPE]->(:ManifestationType {name: 'critical'})
-RETURN e.id
+    "get_expression_id_by_manifestation_id": f"""
+MATCH (e:Expression)<-[:MANIFESTATION_OF]-(m:Manifestation {{id: $manifestation_id}})-[:HAS_TYPE]->(:ManifestationType {{name: 'critical'}})
+RETURN e.id as expression_id,
+       [{Queries.primary_nomen('e', 'HAS_TITLE')}] as title,
+       [(e)-[:HAS_LANGUAGE]->(lang:Language) | lang.code][0] as language
 """
 }
 
 
 Queries.segments = {
-    "create_search_segmentation_annotation": f"""
-MATCH (m:Manifestation {{id: $manifestation_id}})
-MERGE (ann:Annotation {{id: $annotation_id}})
-MERGE (ann)-[:HAS_TYPE]->(ann_type:AnnotationType {{name: 'search_segmentation'}})
+    "create_search_segmentation_annotation": """
+MATCH (m:Manifestation {id: $manifestation_id})
+MERGE (ann:Annotation {id: $annotation_id})
+MERGE (ann)-[:HAS_TYPE]->(ann_type:AnnotationType {name: 'search_segmentation'})
 MERGE (ann)-[:ANNOTATION_OF]->(m)
-UNWIND $segmentation_result AS segment
-SET segment_id = {generate_id()}
-MERGE (seg:Segment {{id: segment_id}})
+WITH ann, m
+UNWIND $segments AS segment_data
+MERGE (seg:Segment {id: segment_data.segment_id})
+SET seg.span_start = segment_data.span_start,
+    seg.span_end = segment_data.span_end
 MERGE (seg)-[:SEGMENTATION_OF]->(ann)
 RETURN seg.id as segment_id,
-seg.span_start as span_start,
-seg.span_end as span_end
+       seg.span_start as span_start,
+       seg.span_end as span_end
 """,
 #     "get_segments_by_annotation_id": """
 # MATCH (a:Annotation {id: $annotation_id})<-[:SEGMENTATION_OF]-(s:Segment)

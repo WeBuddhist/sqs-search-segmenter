@@ -71,7 +71,7 @@ class Neo4JDatabase:
         db = Neo4JDatabase()
         try:
             with db.get_session() as session:
-                expression_id = session.execute_read(
+                result = session.execute_read(
                     lambda tx: tx.run(
                         Queries.manifestations["get_expression_id_by_manifestation_id"],
                         {
@@ -79,7 +79,10 @@ class Neo4JDatabase:
                         }
                     ).single()
                 )
-                return expression_id
+                expression_id = result["expression_id"]
+                title = result["title"]
+                language = result["language"]
+                return expression_id, title, language
         except Exception as e:
             logger.error(f"Error getting expression id by manifestation id: {e}")
             raise HTTPException(status_code=500, detail=f"Error getting expression id by manifestation id: {e}")
@@ -101,27 +104,35 @@ class Neo4JDatabase:
                 logger.info(f"Overlapping segments: {result}")
                 logger.info(f"Fetched {len(result)} overlapping segments from Neo4J database")
                 return result
+            
         except Exception as e:
             logger.error(f"Error getting overlapping segments by search segments id: {e}")
             raise HTTPException(status_code=500, detail=f"Error getting overlapping segments by search segments id: {e}")
 
 
-    @staticmethod
-    def create_search_segments(segmentation_result: list[dict], manifestation_id: str):
-        db = Neo4JDatabase()
+    def create_search_segments(self, segmentation_result: list[dict], manifestation_id: str):
         try:
-            with db.get_session() as session:
+            # Prepare segments data with IDs
+            segments_data = []
+            for segment in segmentation_result:
+                segment_id = generate_id()
+                segments_data.append({
+                    "segment_id": segment_id,
+                    "span_start": segment.get("span_start"),
+                    "span_end": segment.get("span_end")
+                })
+            
+            with self.get_session() as session:
                 result = session.execute_write(
                     lambda tx: tx.run(
                         Queries.segments["create_search_segmentation_annotation"],
                         {
-                            "segmentation_result": segmentation_result,
+                            "segments": segments_data,
                             "manifestation_id": manifestation_id,
                             "annotation_id": generate_id()  
                         }
                     )
                 ).data()
-                result = [{"search_segment_id": result["segment_id"], "span_start": result["span_start"], "span_end": result["span_end"]} for result in result]
                 return result
         except Exception as e:
             logger.error(f"Error creating search segments: {e}")

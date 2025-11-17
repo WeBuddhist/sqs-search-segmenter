@@ -15,6 +15,14 @@ Config = {
     "AWS_ACCESS_KEY_ID": os.getenv('AWS_ACCESS_KEY_ID', None),
     "AWS_SECRET_ACCESS_KEY": os.getenv('AWS_SECRET_ACCESS_KEY', None),
     "SQS_QUEUE_URL": os.getenv('SQS_QUEUE_URL', None),
+    
+    # Milvus Configuration
+    "MILVUS_URI": os.getenv('MILVUS_URI', None),
+    "MILVUS_TOKEN": os.getenv('MILVUS_TOKEN', None),
+    "MILVUS_COLLECTION_NAME": os.getenv('MILVUS_COLLECTION_NAME', 'segments'),
+    
+    # Firebase Configuration
+    "GOOGLE_APPLICATION_CREDENTIALS": os.getenv('GOOGLE_APPLICATION_CREDENTIALS', None),
 }
 
 

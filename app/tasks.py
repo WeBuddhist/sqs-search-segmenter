@@ -15,10 +15,10 @@ from sqlalchemy import update
 from dotenv import load_dotenv
 
 from app.db.postgres import SessionLocal
-from app.db.models import ManifestationTask, RootJob
+from app.db.models import RootJob
 from app.neo4j_database import Neo4JDatabase
 from app.storage import Storage
-from app.segmentation import get_search_segmentation
+from app.segmentation import get_search_segmentation, generate_segments_and_upload_to_vector_db
 
 
 load_dotenv(override=True)
@@ -52,11 +52,6 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
 
         # Update job status to IN_PROGRESS
         _update_root_job_status(job_id=job_id, status="IN_PROGRESS")
-        _update_manifestation_task_record(
-            job_id=job_id,
-            manifestation_id=manifestation_id,
-            status="IN_PROGRESS"
-        )
         logger.info(f"Job {job_id} status updated to IN_PROGRESS")
 
         # Initialize connections
@@ -65,28 +60,30 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
 
         # Fetch data from Neo4j
         logger.info(f"Fetching expression and annotation IDs from Neo4j")
-        expression_id = db.get_expression_id_by_manifestation_id(
+        expression_id, title, language = db.get_expression_id_by_manifestation_id(
             manifestation_id=manifestation_id
         )
+        title = title[0]['text'] if title else ""
         logger.info(f"Manifestation id: {manifestation_id} has Expression id: {expression_id}")
         # Retrieve base text from storage
+        logger.info(f"Language: {language}, Title: {title}")
         logger.info(f"Retrieving base text from storage")
-        base_text = storage.retrieve_base_text(
-            expression_id=expression_id,
-            manifestation_id=manifestation_id
-        )
+        # base_text = storage.retrieve_base_text(
+        #     expression_id=expression_id,
+        #     manifestation_id=manifestation_id
+        # )
+        base_text = "སངས་རྒྱས་ལ་བསྟོད་པ་གང་ཚེ་རྐང་གཉིས་མ་ཟེར་བ་དེ་རེད།ནམ་ཞིག་མི་ཚང་མའི་གཙོ་བོ་ཁྱོད་སྐྱེ་དུས། ས་གཞི་འདིའི་ཐོག་ལ་གོམ་པ་བདུན་སྤོས་ནས། ‘འཇིག་རྟེན་འདིའི་ནང་ལ་ང་རང་གཙོ་བོ་ཡིན།’ ཟེར་ནས་ལབ་པ་རེད། དུས་དེར་མཁས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།དང་པོ་དགའ་ལྡན་ལྷའི་ཡུལ་ནས་ཡོང་། རྒྱལ་པོའི་ཕོ་བྲང་ནང་ལ་ཨ་མའི་མངལ་དུ་འཛུལ། ལུམྦི་ནི་སྐྱེད་མོས་ཚལ་ནང་ལ་སྐྱེས། ལྷ་ཚང་མའི་ནང་གི་ལྷ་ཆེ་ཤོས་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཕོ་བྲང་ནང་ལ་མ་མ་སུམ་ཅུ་སོ་གཉིས་ཀྱིས་ལྟ་སྐྱོང་བྱས། ཤཱཀྱའི་གྲོང་ཁྱེར་ནང་ལ་གཞོན་ནུ་སྐབས་ཀྱི་རྩེད་མོ་བརྩེས། སེར་སྐྱའི་གྲོང་ཁྱེར་ནང་ལ་ས་འཚོ་མ་ཟེར་བ་དེ་མནའ་མར་བླངས། འཇིག་རྟེན་འདིའི་ནང་ལ་འགྲན་ཟླ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།གྲོང་ཁྱེར་གྱི་སྒོ་བཞིའི་ནང་ལ་ཕྱིན་ནས་སེམས་སྐྱོ་པོ་ཆགས་པའི་རྣམ་འགྱུར་བསྟན། མཆོད་རྟེན་རྣམ་དག་ཟེར་བའི་འགྲམ་ལ་རང་གི་སྐྲ་བྲེགས། ནཻ་རཉྫ་ནཱ་ཟེར་བའི་གཙང་པོའི་འགྲམ་ལ་ལུས་སེམས་ལ་དཀའ་ལས་བཏང་ནས་སྒོམ་བརྒྱབ། སེམས་ཀྱི་སྐྱོན་ཚང་མ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།རྒྱལ་པོའི་ཁབ་ཟེར་བའི་ས་ཆ་དེར་གླང་ཆེན་སྨྱོན་པ་ཞིག་བཏུལ། ཡངས་པ་ཅན་ཟེར་བའི་ས་ཆ་དེར་སྤྲེའུ་ཞིག་གིས་སྦྲང་རྩི་ཕུལ། མ་ག་དྷ་ཟེར་བའི་ས་ཆ་དེར་སངས་རྒྱས། ཤེས་རབ་མེ་ནང་བཞིན་འབར་མཁན་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཝཱ་ར་ཎཱ་སི་ལ་དང་པོ་ཆོས་བཤད། ཛེ་ཏའི་ཚལ་ཟེར་བའི་ནང་ལ་རྫུ་འཕྲུལ་ཆེན་པོ་བསྟན། རྩྭ་མཆོག་གྲོང་ཟེར་བའི་ས་ཆ་དེར་གྲོངས། སེམས་ནམ་མཁའ་ནང་བཞིན་ཡངས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ངས་སངས་རྒྱས་ཀྱི་བྱ་བ་བྱས་པ་ཚོ་ལ་བསྟོད་པ་ཐུང་ཐུང་འདི་བྲིས་པའི་དགེ་བ་འདིས། སེམས་ཅན་ཚང་མའི་བྱ་སྤྱོད་ཚང་མ་ཡང་སངས་རྒྱས་ཀྱི་བྱ་སྤྱོད་ནང་བཞིན་ཏག་ཏག་ཆགས་པར་ཤོག བསྟོད་པ་འདི་སློབ་དཔོན་དཔའ་བོ་ཟེར་མཁན་དེས་བྲིས་པ་རེད།"
         logger.info(f"Retrieved base text with {len(base_text)} characters")
         
 
-        segmentation_result = get_search_segmentation(base_text, language="tibetan")
-        search_segments = db.create_search_segments(segmentation_result)
+        segmentation_result = get_search_segmentation(base_text, language)
+        search_segments = db.create_search_segments(segmentation_result, manifestation_id)
         logger.info(f"Created {len(search_segments)} search segments in Neo4j")
         
         logger.info(f"Fetching overlapping segments from Neo4j")
-        overlapping_segments = db.get_overlapping_segments_by_manifestation_id_and_search_segments(
-            manifestation_id=manifestation_id,
-            search_segments=search_segments
-        )
+        # Extract segment IDs from search_segments
+        segment_ids = [seg.get("segment_id") for seg in search_segments]
+        overlapping_segments = Neo4JDatabase.get_overlapping_segments_by_search_segments_id(segment_ids)
         logger.info(f"Fetched {len(overlapping_segments)} overlapping segments")
 
         # Process segments with content
@@ -98,15 +95,13 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         )
         logger.info(f"Processed {len(segments_with_content)} segments with content")
         
-        # Store results in database
-        logger.info(f"Storing results in database")
-        _store_all_segments_in_db(
-            job_id=job_id,
-            manifestation_id=manifestation_id,
-            result_json=segments_with_content
+        generate_segments_and_upload_to_vector_db(
+            segments_content=segments_with_content,
+            title=title,
+            language="tibetan"
         )
         logger.info(f"Results stored successfully")
-    
+
         return {
             "job_id": job_id,
             "manifestation_id": manifestation_id,
@@ -121,11 +116,9 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         )
         
         # Update status to FAILED (will be retried by SQS)
-        _update_manifestation_task_record(
+        _update_root_job_status(
             job_id=job_id,
-            manifestation_id=manifestation_id,
-            status="FAILED",
-            error_message=str(exc)
+            status="FAILED"
         )
         
         # Re-raise to trigger SQS retry
@@ -135,36 +128,10 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
 def process_search_segments_task(job_id, manifestation_id: str):
     try:
         logger.info(f"Processing search segments for job {job_id}")
-        logger.info(f"Updating root job status to IN_PROGRESS")
-        _update_root_job_status(job_id=job_id)
-        logger.info(f"Updating root job record in database to IN_PROGRESS")
-        _update_manifestation_task_record(job_id=job_id, manifestation_id=manifestation_id, status="IN_PROGRESS")
+        _update_root_job_status(job_id=job_id, status="IN_PROGRESS")
     except Exception as exc:
-        logger.error(f"Error processing search segments for job {job_id}")
-        logger.error(f"Error message: {str(exc)}")
+        logger.error(f"Error processing search segments for job {job_id}: {str(exc)}", exc_info=True)
         raise exc
-
-
-def _update_manifestation_task_record(job_id, manifestation_id, status, error_message=None):
-    with SessionLocal() as session:
-        manifestation_task = session.query(ManifestationTask).filter(ManifestationTask.job_id == job_id, ManifestationTask.manifestation_id == manifestation_id).update({
-            "status": status,
-            "error_message": error_message,
-            "updated_at": datetime.now(timezone.utc)
-        })
-        session.commit()
-        _update_root_job_status(job_id=job_id, status=status)
-
-
-def _update_manifestation_task_record(job_id, manifestation_id, status, error_message=None):
-    with SessionLocal() as session:
-        manifestation_task = session.query(ManifestationTask).filter(ManifestationTask.job_id == job_id, ManifestationTask.manifestation_id == manifestation_id).update({
-            "status": status,
-            "error_message": error_message,
-            "updated_at": datetime.now(timezone.utc)
-        })
-        session.commit()
-        _update_root_job_status(job_id=job_id, status=status)
 
 
 def _update_root_job_status(job_id: str, status: str):
@@ -177,18 +144,6 @@ def _update_root_job_status(job_id: str, status: str):
         )
         session.commit()
         logger.info(f"Updated root job {job_id} status to {status}")
-    
-
-def _store_all_segments_in_db(job_id, manifestation_id, result_json):
-    with SessionLocal() as session:
-        manifestation_task = session.query(ManifestationTask).filter(ManifestationTask.job_id == job_id, ManifestationTask.manifestation_id == manifestation_id)
-        if manifestation_task is not None:
-            manifestation_task.result_json = result_json
-            manifestation_task.status = "COMPLETED"
-            manifestation_task.updated_at = datetime.now(timezone.utc)
-            logger.info(f"Updated manifestation task record in ManifestationTask table with manifestation id = {manifestation_id}")
-            session.commit()
-            _update_root_job_status(job_id=job_id, status="COMPLETED")
 
 
 def _get_segments_with_content(
@@ -244,8 +199,8 @@ def _get_segments_with_content(
                 })
             
             data = {
-                "search_segment_id": search_segment.get('search_segment_id'),
-                "search_segment_content": search_segment_content,
+                "segment_id": search_segment.get('search_segment_id'),
+                "segment_content": search_segment_content,
                 "span_start": span_start,
                 "span_end": span_end,
                 "segments": overlapping_content

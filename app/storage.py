@@ -1,12 +1,37 @@
 import logging
-
-from firebase_admin import storage
-from google.cloud.storage.blob import Blob
+import os
+import firebase_admin
+from firebase_admin import credentials, storage
 
 logger = logging.getLogger(__name__)
 
+# Initialize Firebase Admin SDK (singleton pattern)
+_firebase_initialized = False
+
+def _initialize_firebase():
+    """Initialize Firebase Admin SDK if not already initialized."""
+    global _firebase_initialized
+    if not _firebase_initialized:
+        try:
+            # Try to get existing app
+            firebase_admin.get_app()
+            _firebase_initialized = True
+            logger.info("Firebase app already initialized")
+        except ValueError:
+            # App doesn't exist, initialize it
+            cred_path = "/Users/tashitsering/Desktop/firebase.json"
+            
+            if not os.path.exists(cred_path):
+                raise FileNotFoundError(f"Firebase credentials file not found: {cred_path}")
+            
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred, {"storageBucket": "pecha-backend.firebasestorage.app"})
+            logger.info(f"Firebase initialized with credentials from {cred_path}")
+            _firebase_initialized = True
+
 class Storage:
     def __init__(self) -> None:
+        _initialize_firebase()
         self.bucket = storage.bucket()
 
     @staticmethod

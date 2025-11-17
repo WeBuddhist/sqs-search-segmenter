@@ -22,35 +22,32 @@ class RootJob(Base):
         ),
         nullable=False
     )
+    total_segments = Column(Integer, default=0, nullable=False)
+    completed_segments = Column(Integer, default=0, nullable=False)
+    result_json = Column(JSONB, nullable=True)
     merged_result_location = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    manifestation_tasks = relationship(
-        "ManifestationTask",
-        back_populates="root_job",
-        cascade="all, delete-orphan"
-    )
 
+# class ManifestationTask(Base):
+#     __tablename__ = "manifestation_tasks"
 
-class ManifestationTask(Base):
-    __tablename__ = "manifestation_tasks"
+#     task_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+#     job_id = Column(UUID(as_uuid=True), ForeignKey("root_jobs.job_id"), nullable=False)
+#     manifestation_id = Column(Text, nullable=False)
+#     status = Column(
+#         String(20),
+#         CheckConstraint(
+#             "status IN ('QUEUED','IN_PROGRESS','COMPLETED','FAILED','RETRYING')",
+#             name="manifestation_task_status_check"
+#         ),
+#         nullable=False
+#     )
+#     result_json = Column(JSONB, nullable=True)
+#     result_location = Column(Text, nullable=True)
+#     error_message = Column(Text, nullable=True)
+#     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+#     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    task_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    job_id = Column(UUID(as_uuid=True), ForeignKey("root_jobs.job_id"), nullable=False)
-    manifestation_id = Column(Text, nullable=False)
-    status = Column(
-        String(20),
-        CheckConstraint(
-            "status IN ('QUEUED','IN_PROGRESS','COMPLETED','FAILED','RETRYING')",
-            name="manifestation_task_status_check"
-        ),
-        nullable=False
-    )
-    result_json = Column(JSONB, nullable=True)
-    result_location = Column(Text, nullable=True)
-    error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    root_job = relationship("RootJob", back_populates="manifestation_tasks")
+#     root_job = relationship("RootJob", back_populates="manifestation_tasks")
