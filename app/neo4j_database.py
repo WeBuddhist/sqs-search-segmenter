@@ -46,24 +46,24 @@ class Neo4JDatabase:
         """Return a new database session."""
         return self.__driver.session()
 
-    @staticmethod
-    def get_segments_by_annotation_id(annotation_id: str):
-        db = Neo4JDatabase()
-        try:
-            with Neo4JDatabase.get_session() as session:
-                result =  session.execute_read(
-                    lambda tx: tx.run(
-                        Queries.segments["get_segments_by_annotation_id"],
-                        {
-                            "annotation_id": annotation_id
-                        }
-                    ).data()
-                )
-                logger.info(f"annotation's id {annotation_id} has {len(result)} segments")
-                return result
-        except Exception as e:
-            logger.error(f"Error getting segments by annotation id: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting segments by annotation id: {e}")
+    # @staticmethod
+    # def get_segments_by_annotation_id(annotation_id: str):
+    #     db = Neo4JDatabase()
+    #     try:
+    #         with Neo4JDatabase.get_session() as session:
+    #             result =  session.execute_read(
+    #                 lambda tx: tx.run(
+    #                     Queries.segments["get_segments_by_annotation_id"],
+    #                     {
+    #                         "annotation_id": annotation_id
+    #                     }
+    #                 ).data()
+    #             )
+    #             logger.info(f"annotation's id {annotation_id} has {len(result)} segments")
+    #             return result
+    #     except Exception as e:
+    #         logger.error(f"Error getting segments by annotation id: {e}")
+    #         raise HTTPException(status_code=500, detail=f"Error getting segments by annotation id: {e}")
 
 
     @staticmethod
@@ -89,50 +89,51 @@ class Neo4JDatabase:
 
 
     @staticmethod
-    def get_overlapping_segments_by_search_segments_id(segment_ids: list):
+    def get_overlapping_segments_by_search_segments_id(search_segments: list):
         db = Neo4JDatabase()
         try:
             with db.get_session() as session:
                 result = session.execute_read(
                     lambda tx: tx.run(
-                        Queries.segments["get_overlapping_segments_by_search_segments_id"],
+                        Queries.segments["get_overlapping_segments_by_search_segments_id_grouped"],
                         {
-                            "segment_ids": segment_ids,
+                            "segment_ids": [segment.get('segment_id') for segment in search_segments]
                         }
                     ).data()
                 )
-                logger.info(f"Overlapping segments: {result}")
-                logger.info(f"Fetched {len(result)} overlapping segments from Neo4J database")
+                logger.info(f"HERE is the Overlapping segments: {result}")
                 return result
-            
         except Exception as e:
-            logger.error(f"Error getting overlapping segments by search segments id: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting overlapping segments by search segments id: {e}")
-
+            logger.error(f"Error getting overlapping segments: {e}")
+            raise HTTPException(status_code=500, detail=f"Error getting overlapping segments: {e}")
 
     def create_search_segments(self, segmentation_result: list[dict], manifestation_id: str):
+        db = Neo4JDatabase()
         try:
-            # Prepare segments data with IDs
-            segments_data = []
+            # Prepare segments data with IDs and flatten span structure
+            formatted_segments = []
             for segment in segmentation_result:
                 segment_id = generate_id()
-                segments_data.append({
+                
+                formatted_segments.append({
                     "segment_id": segment_id,
-                    "span_start": segment.get("span_start"),
-                    "span_end": segment.get("span_end")
+                    "span_start": segment.get("span").get("start"),
+                    "span_end": segment.get("span").get("end")
                 })
-            
-            with self.get_session() as session:
+
+            logger.info(f"Creating {len(formatted_segments)} search segments")
+            with db.get_session() as session:
                 result = session.execute_write(
                     lambda tx: tx.run(
                         Queries.segments["create_search_segmentation_annotation"],
                         {
-                            "segments": segments_data,
+                            "segments": formatted_segments,
                             "manifestation_id": manifestation_id,
                             "annotation_id": generate_id()  
                         }
-                    )
-                ).data()
+                    ).data()
+                )
+                logger.info(f"Successfully created search segments in Neo4j")
                 return result
         except Exception as e:
             logger.error(f"Error creating search segments: {e}")

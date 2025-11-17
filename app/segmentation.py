@@ -31,33 +31,6 @@ def get_segmentation_status(job_id: str):
             return job
     except:
         raise HTTPException(status_code=500, detail="Failed to get job status, Database read error")
-
-
-# @segmentation.get("/{manifestation_id}/segments")
-# def get_all_segments_by_manifestation(
-#     manifestation_id: str,
-# ):
-#     try:
-#         with SessionLocal() as session:
-#             root_job = session.query(RootJob).filter(
-#                 RootJob.manifestation_id == manifestation_id,
-#                 RootJob.status == "COMPLETED"
-#             ).order_by(RootJob.created_at.desc()).first()
-            
-#             if not root_job:
-#                 raise HTTPException(
-#                     status_code=404,
-#                     detail="No completed job found for manifestation"
-#                 )
-#             return root_job.result_json
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Error getting segments: {e}", exc_info=True)
-#         raise HTTPException(
-#             status_code=500,
-#             detail="Failed to get segments, Database error"
-#         )
         
 
 @segmentation.get("/")
@@ -86,8 +59,12 @@ def get_search_segmentation(text: str, language: str):
     Segment text using the Milvus segment generator.
     """
     try:
-        segmentation_result = segment_text(text, language)
-        return segmentation_result
+        # segment_text returns a tuple: (segments_list, text)
+        segments, _ = segment_text(text, language)
+        logger.info(f"Raw segmentation result type: {type(segments)}")
+        logger.info(f"Raw segmentation result: {segments}")
+        
+        return segments
     except Exception as e:
         logger.error(f"Error getting search segmentation: {e}", exc_info=True)
         raise HTTPException("Failed to get search segmentation", str(e))
@@ -99,6 +76,7 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
         MILVUS_URI = os.getenv('MILVUS_URI')
         MILVUS_TOKEN = os.getenv('MILVUS_TOKEN')
         MILVUS_COLLECTION_NAME = os.getenv('MILVUS_COLLECTION_NAME')
+
         
         client = MilvusClient(
             uri=MILVUS_URI,
@@ -111,13 +89,14 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
         for search_segment in segments_content:
             # Add search segment with its embedding
             search_segment_content = search_segment.get('segment_content')
+            print(search_segment)
             data.append({
                 "id": search_segment.get('segment_id'),
                 "text": search_segment_content,
                 "title": title,
                 "language": language,
                 "parent_id": "",
-                "dense_vector": embed_texts_batch([search_segment_content])[0]
+                "dense_vector": embed_texts_batch([search_segment_content], api_key=os.getenv("GEMINI_API_KEY") )[0]
             })
             # Add overlapping segments with their embeddings
             for each_segment in search_segment.get('segments', []):
@@ -128,7 +107,7 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
                     "title": title,
                     "language": language,
                     "parent_id": search_segment.get('segment_id'),
-                    "dense_vector": embed_texts_batch([segment_content])[0]
+                    "dense_vector": embed_texts_batch([segment_content], api_key=os.getenv("GEMINI_API_KEY"))[0]
                 })
         
         # Insert data into Milvus collection

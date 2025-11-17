@@ -48,8 +48,6 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         Exception: Any error during processing (will trigger SQS retry)
     """
     try:
-        logger.info(f"Processing manifestation {manifestation_id} for job {job_id}")
-
         # Update job status to IN_PROGRESS
         _update_root_job_status(job_id=job_id, status="IN_PROGRESS")
         logger.info(f"Job {job_id} status updated to IN_PROGRESS")
@@ -59,7 +57,6 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         storage = Storage()
 
         # Fetch data from Neo4j
-        logger.info(f"Fetching expression and annotation IDs from Neo4j")
         expression_id, title, language = db.get_expression_id_by_manifestation_id(
             manifestation_id=manifestation_id
         )
@@ -67,7 +64,6 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         logger.info(f"Manifestation id: {manifestation_id} has Expression id: {expression_id}")
         # Retrieve base text from storage
         logger.info(f"Language: {language}, Title: {title}")
-        logger.info(f"Retrieving base text from storage")
         # base_text = storage.retrieve_base_text(
         #     expression_id=expression_id,
         #     manifestation_id=manifestation_id
@@ -77,20 +73,28 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         
 
         segmentation_result = get_search_segmentation(base_text, language)
+        segmentation_result = [
+            {
+                "span": {
+                    "start": 0,
+                    "end": 1391
+                }
+            }
+        ]
+        logger.info(f"Segmentation result: {segmentation_result}")
         search_segments = db.create_search_segments(segmentation_result, manifestation_id)
         logger.info(f"Created {len(search_segments)} search segments in Neo4j")
         
         logger.info(f"Fetching overlapping segments from Neo4j")
         # Extract segment IDs from search_segments
-        segment_ids = [seg.get("segment_id") for seg in search_segments]
-        overlapping_segments = Neo4JDatabase.get_overlapping_segments_by_search_segments_id(segment_ids)
-        logger.info(f"Fetched {len(overlapping_segments)} overlapping segments")
+        overlapping_mappings = Neo4JDatabase.get_overlapping_segments_by_search_segments_id(search_segments)
+        logger.info(f"Fetched {len(overlapping_mappings)} overlapping segments")
 
         # Process segments with content
         logger.info(f"Processing segments with content")
         segments_with_content = _get_segments_with_content(
             search_segments=search_segments,
-            overlapping_segments=overlapping_segments,
+            overlapping_segments=overlapping_mappings,
             base_text=base_text
         )
         logger.info(f"Processed {len(segments_with_content)} segments with content")
@@ -147,8 +151,7 @@ def _update_root_job_status(job_id: str, status: str):
 
 
 def _get_segments_with_content(
-    search_segments: List[Dict[str, Any]],
-    overlapping_segments: List[Dict[str, Any]],
+    segments: List[Dict[str, Any]],
     base_text: str
 ) -> List[Dict[str, Any]]:
     """
@@ -162,20 +165,18 @@ def _get_segments_with_content(
     Returns:
         List of dictionaries with segment IDs and content
     """
-    logger.info(f"Getting segments with content for {len(search_segments)} search segments")
+    logger.info(f"Getting segments with content for {len(segments)} search segments")
     segments_with_content = []
     
     try:
-        for search_segment in search_segments:
-            span_start = search_segment.get('span_start', 0)
-            span_end = search_segment.get('span_end', 0)
+        for search_segment in segments:
+            span_start = search_segment.get('span').get('start')
+            span_end = search_segment.get('span').get('end')
+            segment_id = search_segment.get('segment_id')
+            overlapping_segments = search_segment.get('segments')
             
             # Skip if span is out of bounds
             if span_end > len(base_text) or span_start >= len(base_text):
-                logger.warning(
-                    f"Search segment {search_segment.get('search_segment_id')} "
-                    f"span ({span_start}:{span_end}) exceeds base text length ({len(base_text)})"
-                )
                 continue
             
             # Extract search segment content
@@ -184,25 +185,22 @@ def _get_segments_with_content(
             # Extract overlapping segments for this search segment
             overlapping_content = []
             for overlapping_segment in overlapping_segments:
-                overlap_start = overlapping_segment.get('span_start', 0)
-                overlap_end = overlapping_segment.get('span_end', 0)
+                overlap_start = overlapping_segment.get('span').get('start')
+                overlap_end = overlapping_segment.get('span').get('end')
+                overlap_segment_id = overlapping_segment.get('overlapping_segment_id') 
                 
                 # Skip if span is out of bounds
                 if overlap_end > len(base_text) or overlap_start >= len(base_text):
                     continue
                 
                 overlapping_content.append({
-                    "segment_id": overlapping_segment.get('segment_id'),
-                    "segment_content": base_text[overlap_start:overlap_end],
-                    "span_start": overlap_start,
-                    "span_end": overlap_end
+                    "segment_id": overlap_segment_id,
+                    "segment_content": base_text[overlap_start:overlap_end]
                 })
             
             data = {
-                "segment_id": search_segment.get('search_segment_id'),
+                "segment_id": segment_id,
                 "segment_content": search_segment_content,
-                "span_start": span_start,
-                "span_end": span_end,
                 "segments": overlapping_content
             }
             segments_with_content.append(data)
@@ -213,3 +211,7 @@ def _get_segments_with_content(
     except Exception as exc:
         logger.error(f"Error getting segments with content: {str(exc)}", exc_info=True)
         raise exc
+
+if __name__ == "__main__":
+    process_manifestation_task(manifestation_id="qqyEEnVA4IrQ510gxvxWD")
+    

@@ -93,7 +93,8 @@ Queries.segments = {
     "create_search_segmentation_annotation": """
 MATCH (m:Manifestation {id: $manifestation_id})
 MERGE (ann:Annotation {id: $annotation_id})
-MERGE (ann)-[:HAS_TYPE]->(ann_type:AnnotationType {name: 'search_segmentation'})
+MATCH (ann_type:AnnotationType {name: 'search_segmentation'})
+MERGE (ann)-[:HAS_TYPE]->(ann_type)
 MERGE (ann)-[:ANNOTATION_OF]->(m)
 WITH ann, m
 UNWIND $segments AS segment_data
@@ -101,9 +102,7 @@ MERGE (seg:Segment {id: segment_data.segment_id})
 SET seg.span_start = segment_data.span_start,
     seg.span_end = segment_data.span_end
 MERGE (seg)-[:SEGMENTATION_OF]->(ann)
-RETURN seg.id as segment_id,
-       seg.span_start as span_start,
-       seg.span_end as span_end
+RETURN seg.id as segment_id
 """,
 #     "get_segments_by_annotation_id": """
 # MATCH (a:Annotation {id: $annotation_id})<-[:SEGMENTATION_OF]-(s:Segment)
@@ -111,7 +110,7 @@ RETURN seg.id as segment_id,
 #        s.span_start as span_start,
 #        s.span_end as span_end
 # """,
-    "get_overlapping_segments_by_search_segments_id": """
+    "get_overlapping_segments_by_search_segments_id_grouped": """
 UNWIND $segment_ids AS input_segment_id
 MATCH (input_seg:Segment {id: input_segment_id})-[:SEGMENTATION_OF]->(input_ann:Annotation)-[:ANNOTATION_OF]->(m:Manifestation)
 MATCH (seg_ann:Annotation)-[:HAS_TYPE]->(:AnnotationType {name: 'segmentation'})
@@ -119,8 +118,18 @@ MATCH (seg_ann)-[:ANNOTATION_OF]->(m)
 MATCH (seg:Segment)-[:SEGMENTATION_OF]->(seg_ann)
 WHERE seg.span_start < input_seg.span_end 
   AND seg.span_end > input_seg.span_start
-RETURN seg.id as overlapping_segment_id,
-    seg.span_start as span_start,
-    seg.span_end as span_end
-"""
+WITH input_segment_id,
+     input_seg.span_start as input_span_start,
+     input_seg.span_end as input_span_end,
+     collect({
+       segment_id: seg.id,
+       span_start: seg.span_start,
+       span_end: seg.span_end
+     }) as overlapping_segments
+RETURN input_segment_id,
+       input_span_start,
+       input_span_end,
+       overlapping_segments
+ORDER BY input_segment_id
+""",
 }
