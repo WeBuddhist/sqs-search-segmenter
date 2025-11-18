@@ -9,9 +9,9 @@ import os
 
 from app.db.postgres import SessionLocal, get_db
 from app.db.models import RootJob
-from app.neo4j_database import Neo4JDatabase
 from BoEmbedder.gemini import embed_texts_batch
 from pymilvus import MilvusClient
+from app import config
 
 segmentation = APIRouter(
     prefix="/segmentation",
@@ -61,9 +61,7 @@ def get_search_segmentation(text: str, language: str):
     try:
         # segment_text returns a tuple: (segments_list, text)
         segments, _ = segment_text(text, language)
-        logger.info(f"Raw segmentation result type: {type(segments)}")
         logger.info(f"Raw segmentation result: {segments}")
-        
         return segments
     except Exception as e:
         logger.error(f"Error getting search segmentation: {e}", exc_info=True)
@@ -72,10 +70,10 @@ def get_search_segmentation(text: str, language: str):
 
 def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, Any]], title: str, language: str):
     try:
-        # Initialize Milvus client
-        MILVUS_URI = os.getenv('MILVUS_URI')
-        MILVUS_TOKEN = os.getenv('MILVUS_TOKEN')
-        MILVUS_COLLECTION_NAME = os.getenv('MILVUS_COLLECTION_NAME')
+        # Initialize Milvus client using environment-aware config
+        MILVUS_URI = config.get('MILVUS_URI')
+        MILVUS_TOKEN = config.get('MILVUS_TOKEN')
+        MILVUS_COLLECTION_NAME = config.get('MILVUS_COLLECTION_NAME')
 
         
         client = MilvusClient(
@@ -96,7 +94,7 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
                 "title": title,
                 "language": language,
                 "parent_id": "",
-                "dense_vector": embed_texts_batch([search_segment_content], api_key=os.getenv("GEMINI_API_KEY") )[0]
+                "dense_vector": embed_texts_batch([search_segment_content], api_key=config.get("GEMINI_API_KEY") )[0]
             })
             # Add overlapping segments with their embeddings
             for each_segment in search_segment.get('segments', []):
@@ -107,7 +105,7 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
                     "title": title,
                     "language": language,
                     "parent_id": search_segment.get('segment_id'),
-                    "dense_vector": embed_texts_batch([segment_content], api_key=os.getenv("GEMINI_API_KEY"))[0]
+                    "dense_vector": embed_texts_batch([segment_content], api_key=config.get("GEMINI_API_KEY"))[0]
                 })
         
         if data:

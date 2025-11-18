@@ -1,17 +1,15 @@
 import queue as queue_module
 import logging
 from typing import override
-from dotenv import load_dotenv
 from fastapi import HTTPException
 
 from neo4j import GraphDatabase
 from app.neo4j_database_validator import Neo4JDatabaseValidator
-import os
 from app.neo4j_queries import Queries
 from app.identifier import generate_id
-logger = logging.getLogger(__name__)
+from app.config import Config
 
-load_dotenv(override=True)
+logger = logging.getLogger(__name__)
 
 # Singleton driver instance - thread-safe and reusable
 _neo4j_driver = None
@@ -20,9 +18,9 @@ def get_neo4j_driver():
     """Get or create a singleton Neo4j driver instance."""
     global _neo4j_driver
     if _neo4j_driver is None:
-        uri = os.environ.get("NEO4J_URI")
-        user = os.environ.get("NEO4J_USER", "neo4j")  # Default to "neo4j" if not set
-        password = os.environ.get("NEO4J_PASSWORD")
+        uri = Config.get("NEO4J_URI")
+        user = Config.get("NEO4J_USER", "neo4j")  # Default to "neo4j" if not set
+        password = Config.get("NEO4J_PASSWORD")
         logger.info(f"Creating Neo4j driver connection to {uri} with user {user}")
         _neo4j_driver = GraphDatabase.driver(uri, auth=(user, password))
         _neo4j_driver.verify_connectivity()
@@ -153,7 +151,8 @@ class Neo4JDatabase:
                         }
                     ).single()
                 )
-                return result
+                logger.info(f"Search segments exist for manifestation {manifestation_id}: {result}")
+                return result.get("exists")
         except Exception as e:
             logger.error(f"Error checking if search segments exist: {e}")
             raise HTTPException(status_code=500, detail=f"Error checking if search segments exist: {e}")
