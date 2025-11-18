@@ -138,4 +138,9 @@ RETURN input_segment_id,
        overlapping_segments
 ORDER BY input_segment_id
 """,
+    "get_search_segmentation_segments": """
+MATCH (m:Manifestation {id: $manifestation_id})<-[:ANNOTATION_OF]-(a:Annotation)-[:HAS_TYPE]->(:AnnotationType {name: 'search_segmentation'})
+MATCH (a)<-[:SEGMENTATION_OF]-(s:Segment)
+RETURN s.id as segment_id
+"""
 }
