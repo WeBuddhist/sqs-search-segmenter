@@ -140,3 +140,37 @@ class Neo4JDatabase:
         except Exception as e:
             logger.error(f"Error creating search segments: {e}")
             raise HTTPException(status_code=500, detail=f"Error creating search segments: {e}")
+
+    def check_if_search_segments_exist(self, manifestation_id: str):
+        db = Neo4JDatabase()
+        try:
+            with db.get_session() as session:
+                result = session.execute_read(
+                    lambda tx: tx.run(
+                        Queries.segments["check_if_search_segments_exist"],
+                        {
+                            "manifestation_id": manifestation_id
+                        }
+                    ).single()
+                )
+                return result
+        except Exception as e:
+            logger.error(f"Error checking if search segments exist: {e}")
+            raise HTTPException(status_code=500, detail=f"Error checking if search segments exist: {e}")
+
+    def get_search_segments(self, manifestation_id: str):
+        db = Neo4JDatabase()
+        try:
+            with db.get_session() as session:
+                result = session.execute_read(
+                    lambda tx: tx.run(
+                        Queries.segments["get_search_segments"],
+                        {
+                            "manifestation_id": manifestation_id
+                        }
+                    ).data()
+                )
+                return result
+        except Exception as e:
+            logger.error(f"Error getting search segments: {e}")
+            raise HTTPException(status_code=500, detail=f"Error getting search segments: {e}")
