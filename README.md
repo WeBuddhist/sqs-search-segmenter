@@ -237,20 +237,56 @@ The current project structure includes:
 
 ### Environment Variables
 
-Configure the following environment variables in your `.env` file or deployment environment:
+The application supports multiple environments (dev/prod) with environment-specific configuration.
 
-* `AWS_ACCESS_KEY_ID` - AWS access key
-* `AWS_SECRET_ACCESS_KEY` - AWS secret key
-* `AWS_REGION` - AWS region (e.g., `us-east-1`)
-* `SQS_QUEUE_URL` - SQS queue URL
-* `NEO4J_URI` - Neo4j connection URI
-* `NEO4J_USERNAME` - Neo4j username
-* `NEO4J_PASSWORD` - Neo4j password
-* `POSTGRES_HOST` - PostgreSQL host
-* `POSTGRES_PORT` - PostgreSQL port
-* `POSTGRES_DB` - PostgreSQL database name
-* `POSTGRES_USER` - PostgreSQL username
-* `POSTGRES_PASSWORD` - PostgreSQL password
+#### Environment Selector
+
+* `ENVIRONMENT` - Set to `dev` or `prod` to select which environment configuration to use
+
+#### Environment-Specific Variables
+
+All configuration variables support environment-specific versions using `DEV_` or `PROD_` prefixes:
+
+**PostgreSQL:**
+* `DEV_POSTGRES_URL` / `PROD_POSTGRES_URL` - PostgreSQL connection string
+
+**Neo4j:**
+* `DEV_NEO4J_URI` / `PROD_NEO4J_URI` - Neo4j connection URI
+* `DEV_NEO4J_USER` / `PROD_NEO4J_USER` - Neo4j username
+* `DEV_NEO4J_PASSWORD` / `PROD_NEO4J_PASSWORD` - Neo4j password
+
+**AWS SQS:**
+* `DEV_AWS_REGION` / `PROD_AWS_REGION` - AWS region (e.g., `us-east-1`)
+* `DEV_AWS_ACCESS_KEY_ID` / `PROD_AWS_ACCESS_KEY_ID` - AWS access key
+* `DEV_AWS_SECRET_ACCESS_KEY` / `PROD_AWS_SECRET_ACCESS_KEY` - AWS secret key
+* `DEV_SQS_QUEUE_URL` / `PROD_SQS_QUEUE_URL` - SQS queue URL
+
+**Firebase Storage:**
+* `DEV_GOOGLE_APPLICATION_CREDENTIALS` / `PROD_GOOGLE_APPLICATION_CREDENTIALS` - Path to Firebase credentials JSON
+* `DEV_FIREBASE_STORAGE_BUCKET` / `PROD_FIREBASE_STORAGE_BUCKET` - Firebase Storage bucket name
+
+**Milvus:**
+* `DEV_MILVUS_URI` / `PROD_MILVUS_URI` - Milvus connection URI
+* `DEV_MILVUS_TOKEN` / `PROD_MILVUS_TOKEN` - Milvus authentication token
+* `DEV_MILVUS_COLLECTION_NAME` / `PROD_MILVUS_COLLECTION_NAME` - Milvus collection name
+
+**Environment-Agnostic:**
+* `GEMINI_API_KEY` - Gemini API key (shared across environments)
+* `LOG_LEVEL` - Logging level (default: `INFO`)
+
+#### Usage Examples
+
+**Development:**
+```bash
+ENVIRONMENT=dev
+```
+
+**Production:**
+```bash
+ENVIRONMENT=prod
+```
+
+The system will automatically load the corresponding `DEV_*` or `PROD_*` variables based on the `ENVIRONMENT` setting
 
 ### Running with Docker
 

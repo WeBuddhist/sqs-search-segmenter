@@ -64,30 +64,23 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         logger.info(f"Manifestation id: {manifestation_id} has Expression id: {expression_id}")
         # Retrieve base text from storage
         logger.info(f"Language: {language}, Title: {title}")
-        # base_text = storage.retrieve_base_text(
-        #     expression_id=expression_id,
-        #     manifestation_id=manifestation_id
-        # )
-        base_text = "སངས་རྒྱས་ལ་བསྟོད་པ་གང་ཚེ་རྐང་གཉིས་མ་ཟེར་བ་དེ་རེད།ནམ་ཞིག་མི་ཚང་མའི་གཙོ་བོ་ཁྱོད་སྐྱེ་དུས། ས་གཞི་འདིའི་ཐོག་ལ་གོམ་པ་བདུན་སྤོས་ནས། ‘འཇིག་རྟེན་འདིའི་ནང་ལ་ང་རང་གཙོ་བོ་ཡིན།’ ཟེར་ནས་ལབ་པ་རེད། དུས་དེར་མཁས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།དང་པོ་དགའ་ལྡན་ལྷའི་ཡུལ་ནས་ཡོང་། རྒྱལ་པོའི་ཕོ་བྲང་ནང་ལ་ཨ་མའི་མངལ་དུ་འཛུལ། ལུམྦི་ནི་སྐྱེད་མོས་ཚལ་ནང་ལ་སྐྱེས། ལྷ་ཚང་མའི་ནང་གི་ལྷ་ཆེ་ཤོས་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཕོ་བྲང་ནང་ལ་མ་མ་སུམ་ཅུ་སོ་གཉིས་ཀྱིས་ལྟ་སྐྱོང་བྱས། ཤཱཀྱའི་གྲོང་ཁྱེར་ནང་ལ་གཞོན་ནུ་སྐབས་ཀྱི་རྩེད་མོ་བརྩེས། སེར་སྐྱའི་གྲོང་ཁྱེར་ནང་ལ་ས་འཚོ་མ་ཟེར་བ་དེ་མནའ་མར་བླངས། འཇིག་རྟེན་འདིའི་ནང་ལ་འགྲན་ཟླ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།གྲོང་ཁྱེར་གྱི་སྒོ་བཞིའི་ནང་ལ་ཕྱིན་ནས་སེམས་སྐྱོ་པོ་ཆགས་པའི་རྣམ་འགྱུར་བསྟན། མཆོད་རྟེན་རྣམ་དག་ཟེར་བའི་འགྲམ་ལ་རང་གི་སྐྲ་བྲེགས། ནཻ་རཉྫ་ནཱ་ཟེར་བའི་གཙང་པོའི་འགྲམ་ལ་ལུས་སེམས་ལ་དཀའ་ལས་བཏང་ནས་སྒོམ་བརྒྱབ། སེམས་ཀྱི་སྐྱོན་ཚང་མ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།རྒྱལ་པོའི་ཁབ་ཟེར་བའི་ས་ཆ་དེར་གླང་ཆེན་སྨྱོན་པ་ཞིག་བཏུལ། ཡངས་པ་ཅན་ཟེར་བའི་ས་ཆ་དེར་སྤྲེའུ་ཞིག་གིས་སྦྲང་རྩི་ཕུལ། མ་ག་དྷ་ཟེར་བའི་ས་ཆ་དེར་སངས་རྒྱས། ཤེས་རབ་མེ་ནང་བཞིན་འབར་མཁན་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཝཱ་ར་ཎཱ་སི་ལ་དང་པོ་ཆོས་བཤད། ཛེ་ཏའི་ཚལ་ཟེར་བའི་ནང་ལ་རྫུ་འཕྲུལ་ཆེན་པོ་བསྟན། རྩྭ་མཆོག་གྲོང་ཟེར་བའི་ས་ཆ་དེར་གྲོངས། སེམས་ནམ་མཁའ་ནང་བཞིན་ཡངས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ངས་སངས་རྒྱས་ཀྱི་བྱ་བ་བྱས་པ་ཚོ་ལ་བསྟོད་པ་ཐུང་ཐུང་འདི་བྲིས་པའི་དགེ་བ་འདིས། སེམས་ཅན་ཚང་མའི་བྱ་སྤྱོད་ཚང་མ་ཡང་སངས་རྒྱས་ཀྱི་བྱ་སྤྱོད་ནང་བཞིན་ཏག་ཏག་ཆགས་པར་ཤོག བསྟོད་པ་འདི་སློབ་དཔོན་དཔའ་བོ་ཟེར་མཁན་དེས་བྲིས་པ་རེད།"
+        base_text = storage.retrieve_base_text(
+            expression_id=expression_id,
+            manifestation_id=manifestation_id
+        )
+        # base_text = "སངས་རྒྱས་ལ་བསྟོད་པ་གང་ཚེ་རྐང་གཉིས་མ་ཟེར་བ་དེ་རེད།ནམ་ཞིག་མི་ཚང་མའི་གཙོ་བོ་ཁྱོད་སྐྱེ་དུས། ས་གཞི་འདིའི་ཐོག་ལ་གོམ་པ་བདུན་སྤོས་ནས། ‘འཇིག་རྟེན་འདིའི་ནང་ལ་ང་རང་གཙོ་བོ་ཡིན།’ ཟེར་ནས་ལབ་པ་རེད། དུས་དེར་མཁས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།དང་པོ་དགའ་ལྡན་ལྷའི་ཡུལ་ནས་ཡོང་། རྒྱལ་པོའི་ཕོ་བྲང་ནང་ལ་ཨ་མའི་མངལ་དུ་འཛུལ། ལུམྦི་ནི་སྐྱེད་མོས་ཚལ་ནང་ལ་སྐྱེས། ལྷ་ཚང་མའི་ནང་གི་ལྷ་ཆེ་ཤོས་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཕོ་བྲང་ནང་ལ་མ་མ་སུམ་ཅུ་སོ་གཉིས་ཀྱིས་ལྟ་སྐྱོང་བྱས། ཤཱཀྱའི་གྲོང་ཁྱེར་ནང་ལ་གཞོན་ནུ་སྐབས་ཀྱི་རྩེད་མོ་བརྩེས། སེར་སྐྱའི་གྲོང་ཁྱེར་ནང་ལ་ས་འཚོ་མ་ཟེར་བ་དེ་མནའ་མར་བླངས། འཇིག་རྟེན་འདིའི་ནང་ལ་འགྲན་ཟླ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།གྲོང་ཁྱེར་གྱི་སྒོ་བཞིའི་ནང་ལ་ཕྱིན་ནས་སེམས་སྐྱོ་པོ་ཆགས་པའི་རྣམ་འགྱུར་བསྟན། མཆོད་རྟེན་རྣམ་དག་ཟེར་བའི་འགྲམ་ལ་རང་གི་སྐྲ་བྲེགས། ནཻ་རཉྫ་ནཱ་ཟེར་བའི་གཙང་པོའི་འགྲམ་ལ་ལུས་སེམས་ལ་དཀའ་ལས་བཏང་ནས་སྒོམ་བརྒྱབ། སེམས་ཀྱི་སྐྱོན་ཚང་མ་མེད་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།རྒྱལ་པོའི་ཁབ་ཟེར་བའི་ས་ཆ་དེར་གླང་ཆེན་སྨྱོན་པ་ཞིག་བཏུལ། ཡངས་པ་ཅན་ཟེར་བའི་ས་ཆ་དེར་སྤྲེའུ་ཞིག་གིས་སྦྲང་རྩི་ཕུལ། མ་ག་དྷ་ཟེར་བའི་ས་ཆ་དེར་སངས་རྒྱས། ཤེས་རབ་མེ་ནང་བཞིན་འབར་མཁན་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ཝཱ་ར་ཎཱ་སི་ལ་དང་པོ་ཆོས་བཤད། ཛེ་ཏའི་ཚལ་ཟེར་བའི་ནང་ལ་རྫུ་འཕྲུལ་ཆེན་པོ་བསྟན། རྩྭ་མཆོག་གྲོང་ཟེར་བའི་ས་ཆ་དེར་གྲོངས། སེམས་ནམ་མཁའ་ནང་བཞིན་ཡངས་པ་ཁྱོད་ལ་ཕྱག་འཚལ་གྱི་ཡོད།ངས་སངས་རྒྱས་ཀྱི་བྱ་བ་བྱས་པ་ཚོ་ལ་བསྟོད་པ་ཐུང་ཐུང་འདི་བྲིས་པའི་དགེ་བ་འདིས། སེམས་ཅན་ཚང་མའི་བྱ་སྤྱོད་ཚང་མ་ཡང་སངས་རྒྱས་ཀྱི་བྱ་སྤྱོད་ནང་བཞིན་ཏག་ཏག་ཆགས་པར་ཤོག བསྟོད་པ་འདི་སློབ་དཔོན་དཔའ་བོ་ཟེར་མཁན་དེས་བྲིས་པ་རེད།"
         logger.info(f"Retrieved base text with {len(base_text)} characters")
-        
 
-        segmentation_result = get_search_segmentation(base_text, language)
-        segmentation_result = [
-            {
-                "span": {
-                    "start": 0,
-                    "end": 1391
-                }
-            }
-        ]
-        logger.info(f"Segmentation result: {segmentation_result}")
-        # check_if_search_segments_exist = db.check_if_search_segments_exist(manifestation_id)
-        # if check_if_search_segments_exist:
+        check_if_search_segments_exist = db.check_if_search_segments_exist(manifestation_id)
+        if check_if_search_segments_exist:
+            search_segments = db.get_search_segments(manifestation_id)
+            logger.info(f"Fetched {len(search_segments)} search segments from Neo4j")
+        else:
+            segmentation_result = get_search_segmentation(base_text, language)
+            logger.info(f"Segmented base text into {len(segmentation_result)} segments")
+            search_segments = db.create_search_segments(segmentation_result, manifestation_id)
+            logger.info(f"Created {len(search_segments)} search segments in Neo4j")
             
-        search_segments = db.create_search_segments(segmentation_result, manifestation_id)
-        logger.info(f"Created {len(search_segments)} search segments in Neo4j")
-        
         overlapping_mappings = Neo4JDatabase.get_overlapping_segments_by_search_segments_id(search_segments)
         logger.info(f"Fetched {len(overlapping_mappings)} overlapping segments")
 
@@ -211,7 +204,4 @@ def _get_segments_with_content(
     except Exception as exc:
         logger.error(f"Error getting segments with content: {str(exc)}", exc_info=True)
         raise exc
-
-if __name__ == "__main__":
-    process_manifestation_task(manifestation_id="qqyEEnVA4IrQ510gxvxWD")
     

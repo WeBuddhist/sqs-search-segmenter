@@ -2,6 +2,7 @@ import logging
 import os
 import firebase_admin
 from firebase_admin import credentials, storage
+from app.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,20 @@ def _initialize_firebase():
             logger.info("Firebase app already initialized")
         except ValueError:
             # App doesn't exist, initialize it
-            cred_path = "/Users/tashitsering/Desktop/firebase.json"
+            cred_path = Config.get("GOOGLE_APPLICATION_CREDENTIALS")
+            storage_bucket = Config.get("FIREBASE_STORAGE_BUCKET")
+            
+            if not cred_path:
+                raise ValueError("GOOGLE_APPLICATION_CREDENTIALS not set in environment variables")
+            
+            if not storage_bucket:
+                raise ValueError("FIREBASE_STORAGE_BUCKET not set in environment variables")
             
             if not os.path.exists(cred_path):
                 raise FileNotFoundError(f"Firebase credentials file not found: {cred_path}")
             
             cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred, {"storageBucket": "pecha-backend.firebasestorage.app"})
+            firebase_admin.initialize_app(cred, {"storageBucket": storage_bucket})
             logger.info(f"Firebase initialized with credentials from {cred_path}")
             _firebase_initialized = True
 

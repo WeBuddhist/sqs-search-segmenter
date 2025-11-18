@@ -104,12 +104,18 @@ SET seg.span_start = segment_data.span_start,
 MERGE (seg)-[:SEGMENTATION_OF]->(ann)
 RETURN seg.id as segment_id
 """,
-#     "get_segments_by_annotation_id": """
-# MATCH (a:Annotation {id: $annotation_id})<-[:SEGMENTATION_OF]-(s:Segment)
-# RETURN s.id as segment_id,
-#        s.span_start as span_start,
-#        s.span_end as span_end
-# """,
+    "check_if_search_segments_exist": """
+OPTIONAL MATCH (m:Manifestation {id: $manifestation_id})<-[:ANNOTATION_OF]-(ann:Annotation)-[:HAS_TYPE]->(:AnnotationType {name: 'search_segmentation'})
+RETURN CASE WHEN ann IS NOT NULL THEN true ELSE false END as exists
+""",
+    "get_search_segments": """
+MATCH (m:Manifestation {id: $manifestation_id})<-[:ANNOTATION_OF]-(ann:Annotation)-[:HAS_TYPE]->(:AnnotationType {name: 'search_segmentation'})
+MATCH (seg:Segment)-[:SEGMENTATION_OF]->(ann)
+RETURN seg.id as segment_id,
+       seg.span_start as span_start,
+       seg.span_end as span_end
+ORDER BY seg.span_start
+""",
     "get_overlapping_segments_by_search_segments_id_grouped": """
 UNWIND $segment_ids AS input_segment_id
 MATCH (input_seg:Segment {id: input_segment_id})-[:SEGMENTATION_OF]->(input_ann:Annotation)-[:ANNOTATION_OF]->(m:Manifestation)
@@ -132,4 +138,9 @@ RETURN input_segment_id,
        overlapping_segments
 ORDER BY input_segment_id
 """,
+    "get_search_segmentation_segments": """
+MATCH (m:Manifestation {id: $manifestation_id})<-[:ANNOTATION_OF]-(a:Annotation)-[:HAS_TYPE]->(:AnnotationType {name: 'search_segmentation'})
+MATCH (a)<-[:SEGMENTATION_OF]-(s:Segment)
+RETURN s.id as segment_id
+"""
 }
