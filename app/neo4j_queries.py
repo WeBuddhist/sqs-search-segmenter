@@ -93,7 +93,7 @@ Queries.segments = {
     "create_search_segmentation_annotation": """
 MATCH (m:Manifestation {id: $manifestation_id})
 MERGE (ann:Annotation {id: $annotation_id})
-MATCH (ann_type:AnnotationType {name: 'search_segmentation'})
+MERGE (ann_type:AnnotationType {name: 'search_segmentation'})
 MERGE (ann)-[:HAS_TYPE]->(ann_type)
 MERGE (ann)-[:ANNOTATION_OF]->(m)
 WITH ann, m

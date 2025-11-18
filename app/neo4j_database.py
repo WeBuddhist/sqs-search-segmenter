@@ -44,25 +44,6 @@ class Neo4JDatabase:
         """Return a new database session."""
         return self.__driver.session()
 
-    # @staticmethod
-    # def get_segments_by_annotation_id(annotation_id: str):
-    #     db = Neo4JDatabase()
-    #     try:
-    #         with Neo4JDatabase.get_session() as session:
-    #             result =  session.execute_read(
-    #                 lambda tx: tx.run(
-    #                     Queries.segments["get_segments_by_annotation_id"],
-    #                     {
-    #                         "annotation_id": annotation_id
-    #                     }
-    #                 ).data()
-    #             )
-    #             logger.info(f"annotation's id {annotation_id} has {len(result)} segments")
-    #             return result
-    #     except Exception as e:
-    #         logger.error(f"Error getting segments by annotation id: {e}")
-    #         raise HTTPException(status_code=500, detail=f"Error getting segments by annotation id: {e}")
-
 
     @staticmethod
     def get_expression_id_by_manifestation_id(manifestation_id: str):
@@ -84,7 +65,6 @@ class Neo4JDatabase:
         except Exception as e:
             logger.error(f"Error getting expression id by manifestation id: {e}")
             raise HTTPException(status_code=500, detail=f"Error getting expression id by manifestation id: {e}")
-
 
     @staticmethod
     def get_overlapping_segments_by_search_segments_id(search_segments: list):
