@@ -20,7 +20,8 @@ curl -X POST http://localhost:8080/jobs/create \
   -d '{"manifestation_id": "test-id"}'
 ```
 
-📘 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup guide.
+📘 See [DEPLOYMENT.md](DEPLOYMENT.md) for local Docker setup  
+☁️ See [README_DEPLOYMENT.md](README_DEPLOYMENT.md) for **AWS ECS Fargate deployment** (production)
 
 ## Architecture
 
@@ -96,9 +97,31 @@ GEMINI_API_KEY=your-gemini-api-key
 LOG_LEVEL=INFO
 ```
 
-## Usage
+## Deployment Options
 
-### Docker Compose (Recommended)
+### Option 1: AWS ECS Fargate (Production - Fully Managed)
+
+For production deployment with fully managed infrastructure:
+
+```bash
+# See complete guide in README_DEPLOYMENT.md
+./deploy/ecs-setup.sh      # Create infrastructure
+./deploy/secrets-setup.sh  # Store secrets
+./deploy/deploy.sh         # Deploy application
+```
+
+**Benefits**:
+- ✅ Fully managed (no server maintenance)
+- ✅ Auto-scaling capabilities
+- ✅ High availability with ALB
+- ✅ Secure credential management (AWS Secrets Manager)
+- ✅ Centralized logging (CloudWatch)
+- ✅ ~$100/month for minimal setup
+
+📘 **Full guide**: [README_DEPLOYMENT.md](README_DEPLOYMENT.md)  
+⚡ **Quick start**: [deploy/QUICK_START.md](deploy/QUICK_START.md)
+
+### Option 2: Docker Compose (Local/Development)
 
 ```bash
 # Start all services

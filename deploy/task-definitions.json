@@ -1,0 +1,200 @@
+{
+  "api": {
+    "family": "sqs-search-segmenter-api",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "512",
+    "memory": "1024",
+    "taskRoleArn": "${TASK_ROLE_ARN}",
+    "executionRoleArn": "${EXECUTION_ROLE_ARN}",
+    "containerDefinitions": [
+      {
+        "name": "api",
+        "image": "${ECR_URI_API}:latest",
+        "essential": true,
+        "portMappings": [
+          {
+            "containerPort": 8080,
+            "protocol": "tcp"
+          }
+        ],
+        "command": [
+          "uvicorn",
+          "app.main:app",
+          "--host",
+          "0.0.0.0",
+          "--port",
+          "8080"
+        ],
+        "environment": [
+          {
+            "name": "AWS_REGION",
+            "value": "${AWS_REGION}"
+          },
+          {
+            "name": "PYTHONUNBUFFERED",
+            "value": "1"
+          },
+          {
+            "name": "LOG_LEVEL",
+            "value": "INFO"
+          },
+          {
+            "name": "NEO4J_USER",
+            "value": "neo4j"
+          }
+        ],
+        "secrets": [
+          {
+            "name": "AWS_ACCESS_KEY_ID",
+            "valueFrom": "${AWS_ACCESS_KEY_ID_ARN}"
+          },
+          {
+            "name": "AWS_SECRET_ACCESS_KEY",
+            "valueFrom": "${AWS_SECRET_ACCESS_KEY_ARN}"
+          },
+          {
+            "name": "SQS_QUEUE_URL",
+            "valueFrom": "${SQS_QUEUE_URL_ARN}"
+          },
+          {
+            "name": "NEO4J_URI",
+            "valueFrom": "${NEO4J_URI_ARN}"
+          },
+          {
+            "name": "NEO4J_PASSWORD",
+            "valueFrom": "${NEO4J_PASSWORD_ARN}"
+          },
+          {
+            "name": "MILVUS_URI",
+            "valueFrom": "${MILVUS_URI_ARN}"
+          },
+          {
+            "name": "MILVUS_TOKEN",
+            "valueFrom": "${MILVUS_TOKEN_ARN}"
+          },
+          {
+            "name": "MILVUS_COLLECTION_NAME",
+            "valueFrom": "${MILVUS_COLLECTION_NAME_ARN}"
+          },
+          {
+            "name": "FIREBASE_STORAGE_BUCKET",
+            "valueFrom": "${FIREBASE_STORAGE_BUCKET_ARN}"
+          },
+          {
+            "name": "GEMINI_API_KEY",
+            "valueFrom": "${GEMINI_API_KEY_ARN}"
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "${LOG_GROUP_API}",
+            "awslogs-region": "${AWS_REGION}",
+            "awslogs-stream-prefix": "api"
+          }
+        },
+        "healthCheck": {
+          "command": [
+            "CMD-SHELL",
+            "curl -f http://localhost:8080/health || exit 1"
+          ],
+          "interval": 30,
+          "timeout": 5,
+          "retries": 3,
+          "startPeriod": 60
+        }
+      }
+    ]
+  },
+  "worker": {
+    "family": "sqs-search-segmenter-worker",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "1024",
+    "memory": "2048",
+    "taskRoleArn": "${TASK_ROLE_ARN}",
+    "executionRoleArn": "${EXECUTION_ROLE_ARN}",
+    "containerDefinitions": [
+      {
+        "name": "worker",
+        "image": "${ECR_URI_WORKER}:latest",
+        "essential": true,
+        "command": [
+          "python",
+          "-m",
+          "app.worker"
+        ],
+        "environment": [
+          {
+            "name": "AWS_REGION",
+            "value": "${AWS_REGION}"
+          },
+          {
+            "name": "PYTHONUNBUFFERED",
+            "value": "1"
+          },
+          {
+            "name": "LOG_LEVEL",
+            "value": "INFO"
+          },
+          {
+            "name": "NEO4J_USER",
+            "value": "neo4j"
+          }
+        ],
+        "secrets": [
+          {
+            "name": "AWS_ACCESS_KEY_ID",
+            "valueFrom": "${AWS_ACCESS_KEY_ID_ARN}"
+          },
+          {
+            "name": "AWS_SECRET_ACCESS_KEY",
+            "valueFrom": "${AWS_SECRET_ACCESS_KEY_ARN}"
+          },
+          {
+            "name": "SQS_QUEUE_URL",
+            "valueFrom": "${SQS_QUEUE_URL_ARN}"
+          },
+          {
+            "name": "NEO4J_URI",
+            "valueFrom": "${NEO4J_URI_ARN}"
+          },
+          {
+            "name": "NEO4J_PASSWORD",
+            "valueFrom": "${NEO4J_PASSWORD_ARN}"
+          },
+          {
+            "name": "MILVUS_URI",
+            "valueFrom": "${MILVUS_URI_ARN}"
+          },
+          {
+            "name": "MILVUS_TOKEN",
+            "valueFrom": "${MILVUS_TOKEN_ARN}"
+          },
+          {
+            "name": "MILVUS_COLLECTION_NAME",
+            "valueFrom": "${MILVUS_COLLECTION_NAME_ARN}"
+          },
+          {
+            "name": "FIREBASE_STORAGE_BUCKET",
+            "valueFrom": "${FIREBASE_STORAGE_BUCKET_ARN}"
+          },
+          {
+            "name": "GEMINI_API_KEY",
+            "valueFrom": "${GEMINI_API_KEY_ARN}"
+          }
+        ],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "${LOG_GROUP_WORKER}",
+            "awslogs-region": "${AWS_REGION}",
+            "awslogs-stream-prefix": "worker"
+          }
+        }
+      }
+    ]
+  }
+}
+

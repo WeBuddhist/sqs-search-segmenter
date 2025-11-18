@@ -47,3 +47,8 @@ __pycache__/
 
 .env
 .secret.local
+.env.production
+
+# Deployment
+deploy/ecs-config.env
+deploy/secrets-arns.env
