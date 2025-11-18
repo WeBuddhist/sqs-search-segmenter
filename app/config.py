@@ -14,7 +14,7 @@ Config = {
     "AWS_REGION": os.getenv('AWS_REGION', 'us-east-1'),
     "AWS_ACCESS_KEY_ID": os.getenv('AWS_ACCESS_KEY_ID', None),
     "AWS_SECRET_ACCESS_KEY": os.getenv('AWS_SECRET_ACCESS_KEY', None),
-    "SQS_QUEUE_URL": os.getenv('SQS_QUEUE_URL', None),
+    "SQS_SEARCH_SEGMENTATION_QUEUE_URL": os.getenv('SQS_SEARCH_SEGMENTATION_QUEUE_URL', None),
     
     # Milvus Configuration
     "MILVUS_URI": os.getenv('MILVUS_URI', None),
