@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # FastAPI Web Service with SQS Consumer
+  # FastAPI Web Service - API Only (No Consumer)
   web:
     build:
       context: .
@@ -10,7 +10,6 @@ services:
       - "8080:8080"
     environment:
       # Database Configuration
-      - POSTGRES_URL=${POSTGRES_URL}
       - NEO4J_URI=${NEO4J_URI}
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
@@ -21,9 +20,17 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - SQS_QUEUE_URL=${SQS_QUEUE_URL}
       
-      # Celery Configuration (if still needed)
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://localhost:6379}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://localhost:6379}
+      # Milvus Configuration
+      - MILVUS_URI=${MILVUS_URI}
+      - MILVUS_TOKEN=${MILVUS_TOKEN}
+      - MILVUS_COLLECTION_NAME=${MILVUS_COLLECTION_NAME}
+      
+      # Firebase Configuration
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      
+      # API Keys
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       
       # Application Settings
       - PYTHONUNBUFFERED=1
@@ -38,3 +45,42 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # SQS Worker Service - 4 Worker Processes
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Database Configuration
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      
+      # AWS SQS Configuration
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      
+      # Milvus Configuration
+      - MILVUS_URI=${MILVUS_URI}
+      - MILVUS_TOKEN=${MILVUS_TOKEN}
+      - MILVUS_COLLECTION_NAME=${MILVUS_COLLECTION_NAME}
+      
+      # Firebase Configuration
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}
+      
+      # API Keys
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      
+      # Application Settings
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - ./app:/app/app  # Mount for hot reload during development
+    restart: unless-stopped
+    depends_on:
+      - web

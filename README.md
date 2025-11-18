@@ -1,318 +1,345 @@
-# 📨 Background Job Queue — Architecture & Steps (Using AWS SQS)
+# SQS Search Segmenter
 
-This document explains how our background task system works using **AWS SQS**, **Python workers**, **Neo4j**, and **Postgres**. It also outlines the steps required to set it up and run it in production.
+Fire-and-forget background job processing service for OpenPecha segment analysis using AWS SQS with 4 parallel workers.
 
----
-
-## 📌 1. Overview
-
-We use **AWS SQS** to run long-running tasks in the background.
-
-The flow:
-
-1. API receives a request (e.g., segmentation job)
-2. API creates a job entry in Postgres
-3. API sends a message into SQS with the `job_id` + payload
-4. Worker (`task.py`) reads messages from SQS
-5. Worker calls `segmenter.py` to process the job
-6. `segmenter.py` reads data from Neo4j and generates results
-7. Worker writes results into Postgres (`job` + `task` tables)
-8. Worker deletes the message from SQS after success
-9. If job fails → update status and send to DLQ
-
-This ensures tasks run **reliably**, **asynchronously**, and **in order** when needed.
-
----
-
-## 📌 2. Components
-
-### **🔹 2.1 API Service (Producer)**
-
-Responsible for:
-
-* Creating a "job" entry in Postgres with status `queued`
-* Publishing a message to SQS containing:
-
-  ```json
-  {
-    "job_id": "uuid",
-    "task_type": "segment",
-    "payload": {...}
-  }
-  ```
-
-### **🔹 2.2 SQS Queue**
-
-* Use **FIFO queue** (to preserve order if needed)
-* Set **MessageGroupId** to group related jobs (e.g., `"segmentation"`)
-* Configure:
-
-  * Visibility timeout (longer than job execution time)
-  * Dead Letter Queue (for failing jobs)
-
-### **🔹 2.3 Worker (Consumer) — `task.py`**
-
-Continuously polls SQS:
-
-1. Takes one message at a time
-2. Marks job as `running`
-3. Calls `segmenter.py`
-4. On success:
-
-   * Mark job `completed`
-   * Insert output into `task` table
-   * Delete SQS message
-
-5. On failure:
-
-   * Mark job `failed`
-   * Let SQS retry via visibility timeout
-   * Eventually message goes to DLQ
-
-### **🔹 2.4 Task Processing — `segmenter.py`**
-
-Contains the core logic:
-
-* Calls Neo4j through:
-
-  * `neo4j/database.py`
-  * `neo4j/queries.py`
-
-* Runs the segmentation/processing logic
-* Returns results for storage
-
-### **🔹 2.5 Databases**
-
-#### **Neo4j**
-
-* Stores instance/segment graph data
-* Used for computation-heavy tasks
-
-#### **Postgres**
-
-Tables needed:
-
-* `job` (tracking overall job status)
-* `task` (storing processed results)
-
----
-
-## 📌 3. Required Steps to Make This System Work
-
-### **STEP 1 — Create an SQS Queue (FIFO Recommended)**
-
-* Enable content-based deduplication (optional)
-* Create a Dead Letter Queue (DLQ)
-
-### **STEP 2 — Configure API to enqueue jobs**
-
-* Insert into `job` table
-* Send SQS message with `job_id` + payload
-* Return `job_id` to frontend
-
-### **STEP 3 — Build Worker (`task.py`)**
-
-* Poll SQS using long polling (20 seconds)
-* Process one message at a time
-* Mark job status in Postgres
-* Handle errors safely
-* Delete message after success
-
-### **STEP 4 — Implement `segmenter.py`**
-
-* Define task types (e.g., segmentation)
-* Fetch data from Neo4j
-* Run computation
-* Format output
-* Save results via Postgres
-
-### **STEP 5 — Implement Neo4j Layers**
-
-* `queries.py` → Cypher queries
-* `database.py` → neo4j-driver wrapper
-* Provide clean functions that segmenter calls
-
-### **STEP 6 — Add Postgres Schema**
-
-* `job` table: id, status, timestamps
-* `task` table: results linked to job_id
-
-### **STEP 7 — Configure Worker Deployment**
-
-Options:
-
-* systemd service
-* Docker container
-* ECS / EC2 runner
-* Kubernetes CronJob
-
-### **STEP 8 — Add Monitoring**
-
-Recommended:
-
-* SQS queue length
-* DLQ message count
-* Worker error logs
-* Job status dashboard
-
----
-
-## 📌 4. Job Lifecycle
-
-| Stage         | Description                              |
-| ------------- | ---------------------------------------- |
-| **queued**    | API received request and job enqueued    |
-| **running**   | Worker picked job and started processing |
-| **completed** | Worker successfully finished             |
-| **failed**    | Worker failed (error recorded)           |
-| **retrying**  | SQS is retrying after timeout            |
-
----
-
-## 📌 5. Minimal Folder Structure
-
-```
-/app
-  /api
-    enqueue.py
-  /worker
-    task.py
-    segmenter.py
-  /neo4j
-    database.py
-    queries.py
-  /postgres
-    models.py
-  /utils
-    sqs.py
-```
-
----
-
-## 📌 6. Summary
-
-You need to:
-
-1. Create SQS queue (FIFO) + DLQ
-2. Add code in API to enqueue messages
-3. Add worker (task.py) to consume messages
-4. Implement segmentation logic (segmenter.py)
-5. Add Postgres tracking tables
-6. Add Neo4j access layer
-7. Handle errors and retries
-8. Deploy worker as background service
-
-Everything else you already planned is correct — you just needed structure and missing pieces (visibility timeout, DLQ, idempotency).
-
----
-
-## 📌 7. Current Implementation
-
-The current project structure includes:
-
-* `app/main.py` - Main application entry point
-* `app/tasks.py` - Worker implementation
-* `app/segmentation.py` - Segmentation logic
-* `app/sqs_service.py` - SQS service wrapper
-* `app/neo4j_database.py` - Neo4j database connection
-* `app/neo4j_queries.py` - Cypher queries
-* `app/db/models.py` - Database models
-* `app/db/postgres.py` - PostgreSQL connection
-* `app/storage.py` - Storage utilities
-* `docker-compose.yml` - Docker orchestration
-* `Dockerfile` - Container definition
-* `start.sh` - Startup script
-
----
-
-## 📌 8. Getting Started
-
-### Prerequisites
-
-* Python 3.9+
-* Docker and Docker Compose
-* AWS account with SQS access
-* Neo4j database
-* PostgreSQL database
-
-### Environment Variables
-
-The application supports multiple environments (dev/prod) with environment-specific configuration.
-
-#### Environment Selector
-
-* `ENVIRONMENT` - Set to `dev` or `prod` to select which environment configuration to use
-
-#### Environment-Specific Variables
-
-All configuration variables support environment-specific versions using `DEV_` or `PROD_` prefixes:
-
-**PostgreSQL:**
-* `DEV_POSTGRES_URL` / `PROD_POSTGRES_URL` - PostgreSQL connection string
-
-**Neo4j:**
-* `DEV_NEO4J_URI` / `PROD_NEO4J_URI` - Neo4j connection URI
-* `DEV_NEO4J_USER` / `PROD_NEO4J_USER` - Neo4j username
-* `DEV_NEO4J_PASSWORD` / `PROD_NEO4J_PASSWORD` - Neo4j password
-
-**AWS SQS:**
-* `DEV_AWS_REGION` / `PROD_AWS_REGION` - AWS region (e.g., `us-east-1`)
-* `DEV_AWS_ACCESS_KEY_ID` / `PROD_AWS_ACCESS_KEY_ID` - AWS access key
-* `DEV_AWS_SECRET_ACCESS_KEY` / `PROD_AWS_SECRET_ACCESS_KEY` - AWS secret key
-* `DEV_SQS_QUEUE_URL` / `PROD_SQS_QUEUE_URL` - SQS queue URL
-
-**Firebase Storage:**
-* `DEV_GOOGLE_APPLICATION_CREDENTIALS` / `PROD_GOOGLE_APPLICATION_CREDENTIALS` - Path to Firebase credentials JSON
-* `DEV_FIREBASE_STORAGE_BUCKET` / `PROD_FIREBASE_STORAGE_BUCKET` - Firebase Storage bucket name
-
-**Milvus:**
-* `DEV_MILVUS_URI` / `PROD_MILVUS_URI` - Milvus connection URI
-* `DEV_MILVUS_TOKEN` / `PROD_MILVUS_TOKEN` - Milvus authentication token
-* `DEV_MILVUS_COLLECTION_NAME` / `PROD_MILVUS_COLLECTION_NAME` - Milvus collection name
-
-**Environment-Agnostic:**
-* `GEMINI_API_KEY` - Gemini API key (shared across environments)
-* `LOG_LEVEL` - Logging level (default: `INFO`)
-
-#### Usage Examples
-
-**Development:**
-```bash
-ENVIRONMENT=dev
-```
-
-**Production:**
-```bash
-ENVIRONMENT=prod
-```
-
-The system will automatically load the corresponding `DEV_*` or `PROD_*` variables based on the `ENVIRONMENT` setting
-
-### Running with Docker
+## 🚀 Quick Start
 
 ```bash
+# 1. Set up AWS SQS queues
+./setup_sqs.sh
+
+# 2. Configure environment
+cp .env.example .env  # Edit with your credentials
+
+# 3. Deploy with Docker
 docker-compose up -d
+
+# 4. Test the system
+curl -X POST http://localhost:8080/jobs/create \
+  -H "Content-Type: application/json" \
+  -d '{"manifestation_id": "test-id"}'
 ```
 
-### Running Locally
+📘 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup guide.
+
+## Architecture
+
+```
+External Server → API (Port 8080) → AWS SQS Queue → 4 Workers → Process Jobs
+                                          ↓
+                                   Dead Letter Queue
+                                    (failed jobs)
+```
+
+### Components
+
+- **API Service**: FastAPI REST API for submitting jobs
+- **Worker Service**: 4 parallel processes polling SQS and processing jobs  
+- **AWS SQS**: Message queue with automatic retries (5 attempts) and DLQ
+- **Neo4j**: Graph database for segments
+- **Firebase**: Storage for base texts
+- **Milvus**: Vector database for processed segments
+
+## System Flow
+
+1. External server calls `POST /jobs/create` with `manifestation_id`
+2. API generates `job_id` and enqueues message to SQS
+3. One of 4 workers picks up the message
+4. Worker processes job:
+   - Fetches data from Neo4j
+   - Retrieves base text from Firebase
+   - Processes segments
+   - Uploads to Milvus vector database
+   - Logs success/failure
+5. On success: Message deleted from queue
+6. On failure: Message retries (max 5 times) then moves to DLQ
+
+## Prerequisites
+
+- Python 3.12+
+- Docker & Docker Compose
+- AWS account with SQS access
+- Neo4j database
+- Milvus vector database
+- Firebase Storage
+- Gemini API key
+
+## Configuration
+
+Create `.env` file:
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# AWS SQS (Required)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/account/queue-name
 
-# Run the worker
-python -m app.tasks
+# Neo4j (Required)
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_password
+
+# Milvus (Required)
+MILVUS_URI=your-milvus-uri
+MILVUS_TOKEN=your-token
+MILVUS_COLLECTION_NAME=your-collection
+
+# Firebase (Required)
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+FIREBASE_STORAGE_BUCKET=your-bucket
+
+# API Keys (Required)
+GEMINI_API_KEY=your-gemini-api-key
+
+# Optional
+LOG_LEVEL=INFO
 ```
+
+## Usage
+
+### Docker Compose (Recommended)
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f web      # API logs
+docker-compose logs -f worker   # Worker logs
+
+# Stop services
+docker-compose down
+```
+
+### Local Development
+
+```bash
+# Terminal 1: Start API
+uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# Terminal 2: Start Workers (4 processes)
+python -m app.worker
+```
+
+## API Endpoints
+
+### Submit Job (Fire-and-Forget)
+
+```bash
+POST /jobs/create
+Content-Type: application/json
+
+{
+  "manifestation_id": "M001"
+}
+```
+
+Response:
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "manifestation_id": "M001",
+  "message": "Job enqueued successfully. MessageId: abc123..."
+}
+```
+
+### Health Check
+
+```bash
+GET /health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "service": "api",
+  "note": "Workers run separately - check worker logs for processing status"
+}
+```
+
+### API Documentation
+
+Interactive API docs available at: `http://localhost:8080/docs`
+
+## Monitoring
+
+### Worker Logs
+
+```bash
+# Docker
+docker-compose logs -f worker
+
+# Look for patterns:
+# [Worker-1] Starting processing for manifestation abc123
+# [Worker-1] ✅ Successfully completed processing for manifestation abc123
+# [Worker-1] ❌ FAILED processing manifestation abc123: Error message
+```
+
+### SQS Queue Monitoring
+
+```bash
+# Main queue stats
+aws sqs get-queue-attributes \
+  --queue-url $SQS_QUEUE_URL \
+  --attribute-names ApproximateNumberOfMessages,ApproximateNumberOfMessagesNotVisible \
+  --region us-east-1
+
+# Dead letter queue (failed jobs)
+aws sqs get-queue-attributes \
+  --queue-url $DLQ_URL \
+  --attribute-names ApproximateNumberOfMessages \
+  --region us-east-1
+```
+
+## Scaling
+
+### Increase Worker Count
+
+Edit `app/worker.py`:
+```python
+num_workers = 8  # Change from 4 to 8
+```
+
+Then restart:
+```bash
+docker-compose restart worker
+```
+
+### Multiple Worker Containers
+
+Edit `docker-compose.yml`:
+```yaml
+worker:
+  deploy:
+    replicas: 2  # 2 containers × 4 workers = 8 total
+```
+
+## Project Structure
+
+```
+sqs-search-segmenter/
+├── app/
+│   ├── api/
+│   │   └── enqueue.py          # Job submission API
+│   ├── worker.py               # Multi-process SQS worker ⭐ NEW
+│   ├── main.py                 # FastAPI app (API only)
+│   ├── tasks.py                # Core processing logic
+│   ├── sqs_service.py          # SQS consumer class
+│   ├── neo4j_database.py       # Neo4j operations
+│   ├── storage.py              # Firebase storage
+│   ├── segmentation.py         # Segmentation logic
+│   └── config.py               # Configuration
+├── docs/
+│   └── SQS_SETUP.md            # Detailed setup guide
+├── setup_sqs.sh                # AWS SQS setup script ⭐ NEW
+├── docker-compose.yml          # Container orchestration
+├── Dockerfile                  # Container definition
+├── DEPLOYMENT.md               # Quick deployment guide ⭐ NEW
+├── requirements.txt            # Dependencies
+└── README.md                   # This file
+```
+
+## Key Features
+
+- ✅ **Fire-and-Forget**: Submit jobs without tracking status
+- ✅ **Parallel Processing**: 4 workers process jobs simultaneously
+- ✅ **Automatic Retries**: Failed jobs retry up to 5 times
+- ✅ **Dead Letter Queue**: Persistent failures go to DLQ for review
+- ✅ **Long Polling**: Efficient SQS polling (reduces costs)
+- ✅ **Comprehensive Logging**: Track all job processing
+- ✅ **Easy Scaling**: Add more workers with simple config change
+- ✅ **Docker Ready**: One-command deployment
+
+## Troubleshooting
+
+### Workers Not Processing Messages
+
+```bash
+# Check workers are running
+docker-compose ps
+
+# Check worker logs
+docker-compose logs worker | grep ERROR
+
+# Restart workers
+docker-compose restart worker
+```
+
+### Jobs Failing Repeatedly
+
+```bash
+# View error logs
+docker-compose logs worker | grep "FAILED"
+
+# Check dead letter queue
+aws sqs receive-message \
+  --queue-url $DLQ_URL \
+  --max-number-of-messages 1 \
+  --region us-east-1
+```
+
+### Common Issues
+
+1. **No AWS credentials**: Run `aws configure`
+2. **Wrong queue URL**: Check `SQS_QUEUE_URL` in `.env`
+3. **Neo4j connection failed**: Verify `NEO4J_URI` and credentials
+4. **Firebase auth failed**: Check `GOOGLE_APPLICATION_CREDENTIALS` path
+5. **Slow processing**: Increase worker count or check network latency
+
+## Documentation
+
+- **[Quick Deployment](DEPLOYMENT.md)** - Get started in 5 minutes
+- **[Detailed SQS Setup](docs/SQS_SETUP.md)** - Comprehensive guide with monitoring
+- **[API Docs](http://localhost:8080/docs)** - Interactive API documentation
+
+## SQS Configuration
+
+### Queue Settings
+
+- **Visibility Timeout**: 900 seconds (15 minutes)
+- **Message Retention**: 4 days
+- **Max Retries**: 5 attempts before DLQ
+- **Long Polling**: 20 seconds
+- **DLQ**: Captures permanently failed jobs
+
+### How Retries Work
+
+1. Worker picks up message (invisible for 15 min)
+2. If processing fails, message returns to queue after timeout
+3. Another worker can pick it up
+4. After 5 failed attempts, message moves to DLQ
+5. DLQ messages require manual investigation
+
+## Production Checklist
+
+- [ ] AWS SQS queues created (main + DLQ)
+- [ ] IAM permissions configured
+- [ ] Environment variables set
+- [ ] Workers deployed and running
+- [ ] Monitoring/alerting for DLQ
+- [ ] Logs aggregated (CloudWatch/ELK)
+- [ ] Load testing completed
+- [ ] Auto-scaling configured (if needed)
+
+## Support
+
+Need help?
+
+1. Check [DEPLOYMENT.md](DEPLOYMENT.md) for setup issues
+2. Check [docs/SQS_SETUP.md](docs/SQS_SETUP.md) for detailed configuration
+3. Review worker logs: `docker-compose logs -f worker`
+4. Check SQS metrics in AWS Console
+5. Contact the development team
+
+## License
+
+[Your License]
 
 ---
 
-## 📌 9. Next Steps
+**Status**: Production Ready ✅  
+**Last Updated**: 2025-11-18  
+**Version**: 2.0.0 (Multi-Worker SQS)
 
-If you need:
-
-✅ Ready-to-copy folder structure
-✅ Sample worker code
-✅ Example SQL schema
-✅ Complete end-to-end implementation
-
-Feel free to extend this implementation based on your specific requirements.
