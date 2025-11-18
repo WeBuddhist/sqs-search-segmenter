@@ -111,6 +111,7 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
                 })
         
         # Insert data into Milvus collection
+        logger.info(f"HERE is the data to insert into Milvus: {data}")
         if data:
             client.insert(collection_name=MILVUS_COLLECTION_NAME, data=data)
             logger.info(f"Successfully inserted {len(data)} segments into Milvus")

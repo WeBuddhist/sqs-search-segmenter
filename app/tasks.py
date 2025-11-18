@@ -82,19 +82,19 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
             }
         ]
         logger.info(f"Segmentation result: {segmentation_result}")
+        # check_if_search_segments_exist = db.check_if_search_segments_exist(manifestation_id)
+        # if check_if_search_segments_exist:
+            
         search_segments = db.create_search_segments(segmentation_result, manifestation_id)
         logger.info(f"Created {len(search_segments)} search segments in Neo4j")
         
-        logger.info(f"Fetching overlapping segments from Neo4j")
-        # Extract segment IDs from search_segments
         overlapping_mappings = Neo4JDatabase.get_overlapping_segments_by_search_segments_id(search_segments)
         logger.info(f"Fetched {len(overlapping_mappings)} overlapping segments")
 
         # Process segments with content
         logger.info(f"Processing segments with content")
         segments_with_content = _get_segments_with_content(
-            search_segments=search_segments,
-            overlapping_segments=overlapping_mappings,
+            segments=overlapping_mappings,
             base_text=base_text
         )
         logger.info(f"Processed {len(segments_with_content)} segments with content")
@@ -165,16 +165,16 @@ def _get_segments_with_content(
     Returns:
         List of dictionaries with segment IDs and content
     """
-    logger.info(f"Getting segments with content for {len(segments)} search segments")
+    logger.info(f"Getting segments with content for {segments} search segments")
     segments_with_content = []
     
     try:
         for search_segment in segments:
-            span_start = search_segment.get('span').get('start')
-            span_end = search_segment.get('span').get('end')
-            segment_id = search_segment.get('segment_id')
-            overlapping_segments = search_segment.get('segments')
-            
+            span_start = search_segment.get('input_span_start')
+            span_end = search_segment.get('input_span_end')
+            search_segment_id = search_segment.get('input_segment_id')
+            overlapping_segments = search_segment.get('overlapping_segments')
+            logger.info(f"HERE is the search segment {span_start} and {span_end}")
             # Skip if span is out of bounds
             if span_end > len(base_text) or span_start >= len(base_text):
                 continue
@@ -185,10 +185,10 @@ def _get_segments_with_content(
             # Extract overlapping segments for this search segment
             overlapping_content = []
             for overlapping_segment in overlapping_segments:
-                overlap_start = overlapping_segment.get('span').get('start')
-                overlap_end = overlapping_segment.get('span').get('end')
-                overlap_segment_id = overlapping_segment.get('overlapping_segment_id') 
-                
+                overlap_start = overlapping_segment.get('span_start')
+                overlap_end = overlapping_segment.get('span_end')
+                overlap_segment_id = overlapping_segment.get('segment_id') 
+                logger.info(f"HERE is the overlap segment {overlap_start} and {overlap_end}")
                 # Skip if span is out of bounds
                 if overlap_end > len(base_text) or overlap_start >= len(base_text):
                     continue
@@ -199,7 +199,7 @@ def _get_segments_with_content(
                 })
             
             data = {
-                "segment_id": segment_id,
+                "segment_id": search_segment_id,
                 "segment_content": search_segment_content,
                 "segments": overlapping_content
             }
