@@ -95,7 +95,7 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
         generate_segments_and_upload_to_vector_db(
             segments_content=segments_with_content,
             title=title,
-            language="tibetan"
+            language=language
         )
         logger.info(f"Results stored successfully")
 
