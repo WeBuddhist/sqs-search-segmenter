@@ -5,52 +5,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get the current environment (dev or prod)
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'dev').lower()
-
-def _get_env_var(var_name: str, default=None):
-    """
-    Get environment-specific variable.
-    First tries {ENV}_{var_name}, then falls back to {var_name}.
-    """
-    if ENVIRONMENT == 'dev':
-        env_prefix = 'DEV_'
-    elif ENVIRONMENT == 'prod':
-        env_prefix = 'PROD_'
-    elif ENVIRONMENT == 'test':
-        env_prefix = 'TEST_'
-    else:
-        raise ValueError(f"Invalid environment: {ENVIRONMENT}")
-
-    env_specific_var = f"{env_prefix}{var_name}"
-    
-    return os.getenv(env_specific_var)
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'prod').lower()
 
 Config = {
     # Environment info
     "ENVIRONMENT": ENVIRONMENT,
     
     # Neo4j Configuration
-    "NEO4J_URI": _get_env_var('NEO4J_URI', None),
-    "NEO4J_USER": _get_env_var('NEO4J_USER', None),
-    "NEO4J_PASSWORD": _get_env_var('NEO4J_PASSWORD', None),
+    "NEO4J_URI": os.getenv('NEO4J_URI'),
+    "NEO4J_USER": os.getenv('NEO4J_USER'),
+    "NEO4J_PASSWORD": os.getenv('NEO4J_PASSWORD'),
     
     # AWS SQS Configuration
-    "AWS_REGION": _get_env_var('AWS_REGION', 'us-east-1'),
-    "AWS_ACCESS_KEY_ID": _get_env_var('AWS_ACCESS_KEY_ID', None),
-    "AWS_SECRET_ACCESS_KEY": _get_env_var('AWS_SECRET_ACCESS_KEY', None),
-    "SQS_QUEUE_URL": _get_env_var('SQS_QUEUE_URL', None),
+    "AWS_REGION": os.getenv('AWS_REGION', 'us-east-1'),
+    "AWS_ACCESS_KEY_ID": os.getenv('AWS_ACCESS_KEY_ID'),
+    "AWS_SECRET_ACCESS_KEY": os.getenv('AWS_SECRET_ACCESS_KEY'),
+    "SQS_QUEUE_URL": os.getenv('SQS_QUEUE_URL'),
     
     # Milvus Configuration
-    "MILVUS_URI": _get_env_var('MILVUS_URI', None),
-    "MILVUS_TOKEN": _get_env_var('MILVUS_TOKEN', None),
-    "MILVUS_COLLECTION_NAME": _get_env_var('MILVUS_COLLECTION_NAME'),
+    "MILVUS_URI": os.getenv('MILVUS_URI'),
+    "MILVUS_TOKEN": os.getenv('MILVUS_TOKEN'),
+    "MILVUS_COLLECTION_NAME": os.getenv('MILVUS_COLLECTION_NAME'),
     
     # Firebase Configuration
-    "GOOGLE_APPLICATION_CREDENTIALS": _get_env_var('GOOGLE_APPLICATION_CREDENTIALS', None),
-    "FIREBASE_STORAGE_BUCKET": _get_env_var('FIREBASE_STORAGE_BUCKET', None),
+    "GOOGLE_APPLICATION_CREDENTIALS": os.getenv('GOOGLE_APPLICATION_CREDENTIALS'),
+    "FIREBASE_STORAGE_BUCKET": os.getenv('FIREBASE_STORAGE_BUCKET'),
     
-    # API Keys (environment agnostic)
-    "GEMINI_API_KEY": os.getenv('GEMINI_API_KEY', None),
+    # API Keys
+    "GEMINI_API_KEY": os.getenv('GEMINI_API_KEY'),
     
     # Logging
     "LOG_LEVEL": os.getenv('LOG_LEVEL', 'INFO'),
