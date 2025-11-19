@@ -13,7 +13,6 @@ Usage:
 
 import sys
 import os
-import subprocess
 import logging
 from pathlib import Path
 
@@ -88,7 +87,6 @@ def check_required_env_vars():
     load_dotenv()
     
     required_vars = [
-        'POSTGRES_URL',
         'NEO4J_URI',
         'NEO4J_USER',
         'NEO4J_PASSWORD',
@@ -108,20 +106,6 @@ def check_required_env_vars():
         return True
     else:
         print_error(f"Missing environment variables: {', '.join(missing)}")
-        return False
-
-
-def check_postgres_connection():
-    """Check PostgreSQL connection"""
-    print_step("Checking PostgreSQL connection...")
-    try:
-        from app.db.postgres import engine
-        connection = engine.connect()
-        connection.close()
-        print_success("PostgreSQL connection successful")
-        return True
-    except Exception as e:
-        print_error(f"PostgreSQL connection failed: {e}")
         return False
 
 
@@ -173,20 +157,6 @@ def check_aws_credentials():
         return False
 
 
-def setup_database():
-    """Initialize database tables"""
-    print_step("Setting up database...")
-    try:
-        from app.db.postgres import engine
-        from app.db.models import Base
-        
-        Base.metadata.create_all(bind=engine)
-        print_success("Database tables created successfully")
-        return True
-    except Exception as e:
-        print_error(f"Database setup failed: {e}")
-        return False
-
 
 def run_checks():
     """Run all prerequisite checks"""
@@ -198,7 +168,6 @@ def run_checks():
         ("Python Version", check_python_version),
         ("Environment File", check_env_file),
         ("Environment Variables", check_required_env_vars),
-        ("PostgreSQL Connection", check_postgres_connection),
         ("Neo4j Connection", check_neo4j_connection),
         ("AWS SQS Access", check_aws_credentials),
     ]
@@ -227,74 +196,27 @@ def run_checks():
     print(f"\n{Colors.BOLD}Result: {passed}/{total} checks passed{Colors.END}\n")
     
     if passed == total:
-        print_success("All checks passed! You're ready to run the application.")
+        print_success("All checks passed! You're ready to run the workers.")
         print("\nNext steps:")
-        print("  1. python quick_start.py setup   # Initialize database")
-        print("  2. python quick_start.py run     # Start the application")
+        print("  1. python quick_start.py setup        # Initialize database")
+        print("  2. docker-compose up worker           # Start SQS workers")
+        print("\nNote: API service is deployed separately")
     else:
         print_error("Some checks failed. Please fix the issues above.")
     
     return passed == total
 
 
-def run_application():
-    """Start the application"""
-    print_step("Starting application...")
-    try:
-        import uvicorn
-        uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
-    except KeyboardInterrupt:
-        print("\nApplication stopped by user")
-    except Exception as e:
-        print_error(f"Failed to start application: {e}")
-
-
-def test_system():
-    """Run a simple system test"""
-    print_step("Testing the system...")
-    
-    try:
-        import requests
-        import time
-        
-        base_url = "http://localhost:8080"
-        
-        # Check if service is running
-        try:
-            response = requests.get(f"{base_url}/health", timeout=5)
-            if response.status_code == 200:
-                print_success("Service is running")
-            else:
-                print_error(f"Service returned status code {response.status_code}")
-                return False
-        except requests.exceptions.RequestException:
-            print_error("Service is not running. Start it first with: python quick_start.py run")
-            return False
-        
-        # Test job creation (example)
-        print("\nTo test job creation:")
-        print(f"""
-curl -X POST "{base_url}/jobs/create" \\
-  -H "Content-Type: application/json" \\
-  -d '{{"manifestation_id": "test-001"}}'
-        """)
-        
-        return True
-        
-    except ImportError:
-        print_warning("requests library not installed. Install with: pip install requests")
-        return False
-
-
 def main():
     """Main entry point"""
     if len(sys.argv) < 2:
-        print(f"Usage: python {sys.argv[0]} [check|setup|test|run]")
+        print(f"Usage: python {sys.argv[0]} [check|setup]")
         print("\nCommands:")
         print("  check  - Check all prerequisites")
         print("  setup  - Initialize database")
-        print("  test   - Test the system")
-        print("  run    - Run the application")
+        print("\nNote: API commands (test/run) have been removed.")
+        print("      The API is deployed separately.")
+        print("      To run workers: docker-compose up worker")
         sys.exit(1)
     
     command = sys.argv[1]
@@ -303,19 +225,9 @@ def main():
         success = run_checks()
         sys.exit(0 if success else 1)
     
-    elif command == "setup":
-        success = setup_database()
-        sys.exit(0 if success else 1)
-    
-    elif command == "test":
-        success = test_system()
-        sys.exit(0 if success else 1)
-    
-    elif command == "run":
-        run_application()
-    
     else:
         print_error(f"Unknown command: {command}")
+        print("Available commands: check")
         sys.exit(1)
 
 

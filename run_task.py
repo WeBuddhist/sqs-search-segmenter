@@ -18,8 +18,6 @@ logging.basicConfig(
 load_dotenv(override=True)
 
 from app.tasks import process_manifestation_task
-from app.db.postgres import SessionLocal
-from app.db.models import RootJob
 
 def main():
     if len(sys.argv) < 2:
@@ -38,34 +36,7 @@ def main():
     
     print(f"Processing manifestation: {manifestation_id}")
     print(f"Job ID: {job_id}")
-    
-    # Create a RootJob entry in the database
-    print("Creating RootJob entry in database...")
-    try:
-        with SessionLocal() as session:
-            # Check if job already exists
-            existing_job = session.query(RootJob).filter(RootJob.job_id == job_id).first()
-            if not existing_job:
-                root_job = RootJob(
-                    job_id=job_id,
-                    manifestation_id=manifestation_id,
-                    status="QUEUED",
-                    total_segments=0,
-                    completed_segments=0
-                )
-                session.add(root_job)
-                session.commit()
-                print(f"Created RootJob with job_id: {job_id}")
-            else:
-                print(f"RootJob already exists with job_id: {job_id}")
-    except Exception as e:
-        print(f"Failed to create RootJob: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    
-    print("-" * 50)
-    
+     
     try:
         result = process_manifestation_task(job_id=job_id, manifestation_id=manifestation_id)
         print("-" * 50)

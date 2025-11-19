@@ -33,13 +33,20 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1
 
+################################################################################
+# API CONFIGURATION - COMMENTED OUT
+# The API has been deployed separately. This repository is now worker-only.
+################################################################################
 # Expose port for FastAPI
-EXPOSE 8080
+# EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+# Health check for API
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+#     CMD curl -f http://localhost:8080/health || exit 1
 
-# Default command runs FastAPI web service
-# Override this in docker-compose or deployment platform for different services
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
+################################################################################
+# WORKER CONFIGURATION - ACTIVE
+################################################################################
+# Default command runs SQS Worker (4 parallel processes)
+# This can be overridden in docker-compose or deployment platform
+CMD ["python", "-m", "app.worker"]

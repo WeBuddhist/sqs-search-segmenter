@@ -12,27 +12,22 @@ def _get_env_var(var_name: str, default=None):
     Get environment-specific variable.
     First tries {ENV}_{var_name}, then falls back to {var_name}.
     """
-    env_prefix = 'DEV_' if ENVIRONMENT == 'dev' else 'PROD_'
+    if ENVIRONMENT == 'dev':
+        env_prefix = 'DEV_'
+    elif ENVIRONMENT == 'prod':
+        env_prefix = 'PROD_'
+    elif ENVIRONMENT == 'test':
+        env_prefix = 'TEST_'
+    else:
+        raise ValueError(f"Invalid environment: {ENVIRONMENT}")
+
     env_specific_var = f"{env_prefix}{var_name}"
     
-    # Try environment-specific variable first
-    value = os.getenv(env_specific_var)
-    if value is not None:
-        return value
-    
-    # Fall back to non-prefixed variable
-    value = os.getenv(var_name)
-    if value is not None:
-        return value
-    
-    return default
+    return os.getenv(env_specific_var)
 
 Config = {
     # Environment info
     "ENVIRONMENT": ENVIRONMENT,
-    
-    # PostgreSQL Configuration
-    "POSTGRES_URL": _get_env_var('POSTGRES_URL', 'postgresql://admin:pechaAdmin@localhost:5435/pecha'),
     
     # Neo4j Configuration
     "NEO4J_URI": _get_env_var('NEO4J_URI', None),

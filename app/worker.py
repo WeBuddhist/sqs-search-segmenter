@@ -9,7 +9,6 @@ import multiprocessing
 import signal
 import sys
 import time
-from typing import Optional
 
 from aws_sqs_consumer import Consumer, Message
 import json

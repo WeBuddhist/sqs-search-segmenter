@@ -1,12 +1,15 @@
 #!/bin/bash
 
-# Quick Start Script for Celery Microservice
-# This script helps you get the application up and running quickly
+################################################################################
+# Worker-Only Quick Start Script
+# This script helps you get the SQS worker up and running quickly
+# Note: API has been deployed separately - this is worker-only
+################################################################################
 
 set -e  # Exit on error
 
-echo "🚀 Celery Microservice - Quick Start"
-echo "===================================="
+echo "🚀 SQS Search Segmenter - Worker Service"
+echo "=========================================="
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -52,26 +55,26 @@ case $choice in
         echo "🏗️  Building and starting the application..."
         docker-compose up --build -d
         echo ""
-        echo "✅ Application started successfully!"
+        echo "✅ Worker service started successfully!"
         echo ""
         echo "📊 Service Status:"
         docker-compose ps
         echo ""
-        echo "🌐 Application is running at: http://localhost:8080"
-        echo "📊 Health check: http://localhost:8080/health"
+        echo "🔄 SQS Workers are now polling for messages..."
+        echo "📋 To view worker logs, run: docker-compose logs -f worker"
         echo ""
-        echo "To view logs, run: docker-compose logs -f web"
+        echo "Note: API service is deployed separately"
         ;;
     2)
         echo ""
-        echo "🛑 Stopping the application..."
+        echo "🛑 Stopping the worker service..."
         docker-compose down
-        echo "✅ Application stopped"
+        echo "✅ Worker service stopped"
         ;;
     3)
         echo ""
-        echo "📋 Viewing logs (Press Ctrl+C to exit)..."
-        docker-compose logs -f web
+        echo "📋 Viewing worker logs (Press Ctrl+C to exit)..."
+        docker-compose logs -f worker
         ;;
     4)
         echo ""
@@ -80,8 +83,8 @@ case $choice in
         docker-compose build --no-cache
         docker-compose up -d
         echo ""
-        echo "✅ Application rebuilt and started!"
-        echo "🌐 Application is running at: http://localhost:8080"
+        echo "✅ Worker service rebuilt and started!"
+        echo "🔄 SQS Workers are now polling for messages..."
         ;;
     5)
         echo ""

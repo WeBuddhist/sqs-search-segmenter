@@ -1,10 +1,7 @@
-import queue as queue_module
 import logging
-from typing import override
 from fastapi import HTTPException
 
 from neo4j import GraphDatabase
-from app.neo4j_database_validator import Neo4JDatabaseValidator
 from app.neo4j_queries import Queries
 from app.identifier import generate_id
 from app.config import Config
@@ -36,7 +33,6 @@ class Neo4JDatabase:
         else:
             self.__driver = get_neo4j_driver()
         
-        self.__validator = Neo4JDatabaseValidator()
         logger.info("Neo4JDatabase instance initialized with shared driver")
     
 
@@ -66,6 +62,7 @@ class Neo4JDatabase:
             logger.error(f"Error getting expression id by manifestation id: {e}")
             raise HTTPException(status_code=500, detail=f"Error getting expression id by manifestation id: {e}")
 
+
     @staticmethod
     def get_overlapping_segments_by_search_segments_id(search_segments: list):
         db = Neo4JDatabase()
@@ -86,6 +83,7 @@ class Neo4JDatabase:
         except Exception as e:
             logger.error(f"Error getting overlapping segments: {e}")
             raise HTTPException(status_code=500, detail=f"Error getting overlapping segments: {e}")
+
 
     def create_search_segments(self, segmentation_result: list[dict], manifestation_id: str):
         db = Neo4JDatabase()
@@ -119,6 +117,7 @@ class Neo4JDatabase:
             logger.error(f"Error creating search segments: {e}")
             raise HTTPException(status_code=500, detail=f"Error creating search segments: {e}")
 
+
     def check_if_search_segments_exist(self, manifestation_id: str):
         db = Neo4JDatabase()
         try:
@@ -136,6 +135,7 @@ class Neo4JDatabase:
         except Exception as e:
             logger.error(f"Error checking if search segments exist: {e}")
             raise HTTPException(status_code=500, detail=f"Error checking if search segments exist: {e}")
+
 
     def get_search_segments(self, manifestation_id: str):
         db = Neo4JDatabase()
