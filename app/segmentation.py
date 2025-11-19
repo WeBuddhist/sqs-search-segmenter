@@ -1,16 +1,9 @@
 """
-Segmentation API - Endpoints for retrieving segmentation results and data.
+Segmentation module - Functions for text segmentation and content extraction.
 """
-from fastapi import APIRouter, HTTPException
 from milvus_segment_generator.segment import segment_text
 import logging
 from typing import List, Dict, Any
-
-
-segmentation = APIRouter(
-    prefix="/segmentation",
-    tags=["Segmentation Results"]
-)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +19,7 @@ def get_search_segmentation(text: str, language: str):
         return segments
     except Exception as e:
         logger.error(f"Error getting search segmentation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get search segmentation: {str(e)}")
+        raise RuntimeError(f"Failed to get search segmentation: {str(e)}")
 
 
 def get_segments_with_content(

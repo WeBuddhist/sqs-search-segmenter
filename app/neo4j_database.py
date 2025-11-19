@@ -1,6 +1,4 @@
 import logging
-from fastapi import HTTPException
-
 from neo4j import GraphDatabase
 from app.neo4j_queries import Queries
 from app.identifier import generate_id
@@ -60,7 +58,7 @@ class Neo4JDatabase:
                 return expression_id, title, language
         except Exception as e:
             logger.error(f"Error getting expression id by manifestation id: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting expression id by manifestation id: {e}")
+            raise RuntimeError(f"Error getting expression id by manifestation id: {e}")
 
 
     @staticmethod
@@ -82,7 +80,7 @@ class Neo4JDatabase:
                 return result
         except Exception as e:
             logger.error(f"Error getting overlapping segments: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting overlapping segments: {e}")
+            raise RuntimeError(f"Error getting overlapping segments: {e}")
 
 
     def create_search_segments(self, segmentation_result: list[dict], manifestation_id: str):
@@ -115,7 +113,7 @@ class Neo4JDatabase:
                 return result
         except Exception as e:
             logger.error(f"Error creating search segments: {e}")
-            raise HTTPException(status_code=500, detail=f"Error creating search segments: {e}")
+            raise RuntimeError(f"Error creating search segments: {e}")
 
 
     def check_if_search_segments_exist(self, manifestation_id: str):
@@ -134,7 +132,7 @@ class Neo4JDatabase:
                 return result.get("exists")
         except Exception as e:
             logger.error(f"Error checking if search segments exist: {e}")
-            raise HTTPException(status_code=500, detail=f"Error checking if search segments exist: {e}")
+            raise RuntimeError(f"Error checking if search segments exist: {e}")
 
 
     def get_search_segments(self, manifestation_id: str):
@@ -152,4 +150,4 @@ class Neo4JDatabase:
                 return result
         except Exception as e:
             logger.error(f"Error getting search segments: {e}")
-            raise HTTPException(status_code=500, detail=f"Error getting search segments: {e}")
+            raise RuntimeError(f"Error getting search segments: {e}")

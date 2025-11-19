@@ -3,7 +3,6 @@ Tests for segmentation.py - Text segmentation business logic.
 """
 import pytest
 from unittest.mock import patch, MagicMock
-from fastapi import HTTPException
 
 from app.segmentation import get_search_segmentation, get_segments_with_content
 
@@ -40,11 +39,10 @@ class TestGetSearchSegmentation:
         """Test that exceptions are properly raised."""
         mock_segment_text.side_effect = Exception("Segmentation failed")
         
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(RuntimeError) as exc_info:
             get_search_segmentation(sample_base_text, "bo")
         
-        assert exc_info.value.status_code == 500
-        assert "Segmentation failed" in exc_info.value.detail
+        assert "Segmentation failed" in str(exc_info.value)
 
 
 class TestGetSegmentsWithContent:

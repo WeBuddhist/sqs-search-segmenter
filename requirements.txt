@@ -1,11 +1,9 @@
 ################################################################################
-# API Dependencies - COMMENTED OUT
-# The API has been deployed separately. This worker-only repository doesn't need
-# FastAPI/Uvicorn. Keeping pydantic as it may be used elsewhere.
+# Core Dependencies
+# Note: FastAPI/Uvicorn not needed - this is a worker-only service
+# API has been deployed separately
 ################################################################################
-# fastapi==0.104.1
-# uvicorn[standard]==0.24.0
-pydantic>=2.10.0  # Upgraded for pre-built wheels compatibility
+pydantic>=2.10.0  # Upgraded for pre-built wheels compatibility with Python 3.13+
 
 # Database Drivers
 neo4j==5.28.2

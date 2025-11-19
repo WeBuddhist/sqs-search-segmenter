@@ -3,7 +3,6 @@ Tests for neo4j_database.py - Neo4j database operations.
 """
 import pytest
 from unittest.mock import patch, MagicMock, Mock
-from fastapi import HTTPException
 
 from app.neo4j_database import Neo4JDatabase, get_neo4j_driver
 
@@ -104,7 +103,7 @@ class TestNeo4JDatabase:
             "NEO4J_PASSWORD": "password"
         }.get(key, default)
         
-        # The function wraps exceptions in HTTPException
+        # The function wraps exceptions in RuntimeError
         mock_session = MagicMock()
         
         # Make execute_read raise an exception
@@ -124,7 +123,7 @@ class TestNeo4JDatabase:
         import app.neo4j_database as neo4j_module
         neo4j_module._neo4j_driver = None
         
-        with pytest.raises(HTTPException):
+        with pytest.raises(RuntimeError):
             Neo4JDatabase.get_expression_id_by_manifestation_id(sample_manifestation_id)
     
     @patch('app.neo4j_database.GraphDatabase')
