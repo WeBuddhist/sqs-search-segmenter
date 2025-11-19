@@ -1,0 +1,67 @@
+# Coverage.py configuration file
+# For more info: https://coverage.readthedocs.io/en/latest/config.html
+
+[run]
+# Measure branch coverage in addition to statement coverage
+branch = True
+
+# Source packages to measure
+source = app
+
+# Omit specific files/directories from coverage
+omit =
+    */tests/*
+    */venv/*
+    */__pycache__/*
+    */site-packages/*
+    */migrations/*
+    */config.py
+    app/models.py
+    app/worker.py
+    app/utils/sqs_utils.py
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+    def __str__
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+
+    # Don't complain about abstract methods, they aren't run:
+    @(abc\.)?abstractmethod
+
+    # Don't complain about ellipsis in protocols/stubs
+    \.\.\.
+
+# Show lines that weren't executed
+show_missing = True
+
+# Precision of coverage percentage
+precision = 2
+
+# Skip empty files
+skip_empty = True
+
+# Fail if coverage is below this percentage
+fail_under = 75
+
+[html]
+# Directory for HTML output
+directory = htmlcov
+
+[xml]
+# File for XML output
+output = coverage.xml
+

@@ -26,7 +26,7 @@ def get_search_segmentation(text: str, language: str):
         return segments
     except Exception as e:
         logger.error(f"Error getting search segmentation: {e}", exc_info=True)
-        raise HTTPException("Failed to get search segmentation", str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to get search segmentation: {str(e)}")
 
 
 def get_segments_with_content(
