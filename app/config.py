@@ -28,7 +28,7 @@ Config = {
     "MILVUS_COLLECTION_NAME": os.getenv('MILVUS_COLLECTION_NAME'),
     
     # Firebase Configuration
-    "GOOGLE_APPLICATION_CREDENTIALS": os.getenv('GOOGLE_APPLICATION_CREDENTIALS'),
+    "GOOGLE_APPLICATION_CREDENTIALS": "/etc/secrets/GOOGLE_CLOUD_API.json",
     "FIREBASE_STORAGE_BUCKET": os.getenv('FIREBASE_STORAGE_BUCKET'),
     
     # API Keys
