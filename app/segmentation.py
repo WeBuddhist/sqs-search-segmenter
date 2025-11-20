@@ -15,7 +15,6 @@ def get_search_segmentation(text: str, language: str):
     try:
         # segment_text returns a tuple: (segments_list, text)
         segments, _ = segment_text(text, language)
-        logger.info(f"Raw segmentation result: {segments}")
         return segments
     except Exception as e:
         logger.error(f"Error getting search segmentation: {e}", exc_info=True)
@@ -46,8 +45,7 @@ def get_segments_with_content(
             span_end = search_segment.get('input_span_end')
             search_segment_id = search_segment.get('input_segment_id')
             overlapping_segments = search_segment.get('overlapping_segments')
-            logger.info(f"HERE is the search segment {span_start} and {span_end}")
-            # Skip if span is out of bounds
+    
             if span_end > len(base_text) or span_start >= len(base_text):
                 continue
             
@@ -60,7 +58,6 @@ def get_segments_with_content(
                 overlap_start = overlapping_segment.get('span_start')
                 overlap_end = overlapping_segment.get('span_end')
                 overlap_segment_id = overlapping_segment.get('segment_id') 
-                logger.info(f"HERE is the overlap segment {overlap_start} and {overlap_end}")
                 # Skip if span is out of bounds
                 if overlap_end > len(base_text) or overlap_start >= len(base_text):
                     continue

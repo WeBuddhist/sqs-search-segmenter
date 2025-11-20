@@ -3,7 +3,9 @@ SQS utility functions for message handling, retry logic, and DLQ management.
 """
 import json
 import logging
-from typing import Dict, Any, Optional
+import threading
+import time
+from typing import Dict, Any, Optional, Callable
 import boto3
 from botocore.exceptions import ClientError
 from app.config import get
@@ -234,4 +236,155 @@ def calculate_retry_delay(retry_count: int, base_delay: int = 60, max_delay: int
     """
     delay = min(base_delay * (2 ** retry_count), max_delay)
     return delay
+
+
+class VisibilityTimeoutExtender:
+    """
+    Automatically extends SQS message visibility timeout during long-running tasks.
+    
+    This prevents messages from becoming visible again while still being processed,
+    which would cause duplicate processing by other workers.
+    
+    Usage:
+        with VisibilityTimeoutExtender(receipt_handle, extension_interval=300):
+            # Your long-running task here
+            process_job()
+    """
+    
+    def __init__(
+        self,
+        receipt_handle: str,
+        queue_url: str,
+        region: str,
+        extension_interval: int = 300,  # Extend every 5 minutes
+        visibility_timeout: int = 900   # Extend by 15 minutes each time
+    ):
+        """
+        Initialize the visibility timeout extender.
+        
+        Args:
+            receipt_handle: The message's receipt handle
+            queue_url: SQS queue URL
+            region: AWS region
+            extension_interval: How often to extend (seconds)
+            visibility_timeout: How much to extend by (seconds)
+        """
+        self.receipt_handle = receipt_handle
+        self.queue_url = queue_url
+        self.region = region
+        self.extension_interval = extension_interval
+        self.visibility_timeout = visibility_timeout
+        self.running = False
+        self.thread = None
+        self.client = None
+        
+    def __enter__(self):
+        """Start the heartbeat thread when entering context"""
+        self.start()
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Stop the heartbeat thread when exiting context"""
+        self.stop()
+        return False
+    
+    def start(self):
+        """Start the background heartbeat thread"""
+        if self.running:
+            logger.warning("VisibilityTimeoutExtender already running")
+            return
+        
+        self.running = True
+        self.client = boto3.client('sqs', region_name=self.region)
+        self.thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self.thread.start()
+        logger.info(
+            f"Started visibility timeout heartbeat (interval: {self.extension_interval}s, "
+            f"timeout: {self.visibility_timeout}s)"
+        )
+    
+    def stop(self):
+        """Stop the background heartbeat thread"""
+        if not self.running:
+            return
+        
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=5)
+        logger.info("Stopped visibility timeout heartbeat")
+    
+    def _heartbeat_loop(self):
+        """Background thread that periodically extends visibility timeout"""
+        while self.running:
+            try:
+                # Wait for the extension interval
+                for _ in range(self.extension_interval):
+                    if not self.running:
+                        break
+                    time.sleep(1)
+                
+                if not self.running:
+                    break
+                
+                # Extend the visibility timeout
+                self.client.change_message_visibility(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=self.receipt_handle,
+                    VisibilityTimeout=self.visibility_timeout
+                )
+                logger.debug(
+                    f"Extended message visibility timeout by {self.visibility_timeout}s"
+                )
+                
+            except ClientError as e:
+                error_code = e.response.get('Error', {}).get('Code', '')
+                if error_code == 'InvalidParameterValue':
+                    logger.warning(
+                        "Message may have been deleted or processed. Stopping heartbeat."
+                    )
+                    break
+                else:
+                    logger.error(f"Failed to extend visibility timeout: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error in heartbeat loop: {e}")
+                break
+
+
+def process_with_heartbeat(
+    message,
+    task_func: Callable,
+    queue_url: str,
+    region: str,
+    extension_interval: int = 300,
+    visibility_timeout: int = 900
+) -> Any:
+    """
+    Process a task with automatic visibility timeout extension.
+    
+    Args:
+        message: SQS message object (must have ReceiptHandle attribute)
+        task_func: Function to execute (receives no arguments)
+        queue_url: SQS queue URL
+        region: AWS region
+        extension_interval: How often to extend visibility (seconds)
+        visibility_timeout: How much to extend by (seconds)
+        
+    Returns:
+        Result from task_func
+        
+    Raises:
+        Any exception from task_func
+    """
+    receipt_handle = get_message_receipt_handle(message)
+    if not receipt_handle:
+        raise ValueError("Could not extract receipt handle from message")
+    
+    with VisibilityTimeoutExtender(
+        receipt_handle=receipt_handle,
+        queue_url=queue_url,
+        region=region,
+        extension_interval=extension_interval,
+        visibility_timeout=visibility_timeout
+    ):
+        return task_func()
 

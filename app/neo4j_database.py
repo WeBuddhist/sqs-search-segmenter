@@ -65,7 +65,6 @@ class Neo4JDatabase:
     def get_overlapping_segments_by_search_segments_id(search_segments: list):
         db = Neo4JDatabase()
         segment_ids = [segment.get('segment_id') for segment in search_segments]
-        logger.info(f"HERE are the segment ids: {segment_ids}")
         try:
             with db.get_session() as session:
                 result = session.execute_read(
@@ -76,7 +75,6 @@ class Neo4JDatabase:
                         }
                     ).data()
                 )
-                logger.info(f"HERE is the Overlapping segments: {result}")
                 return result
         except Exception as e:
             logger.error(f"Error getting overlapping segments: {e}")

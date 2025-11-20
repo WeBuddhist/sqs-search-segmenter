@@ -15,6 +15,7 @@ import json
 
 from app.config import get
 from app.tasks import process_manifestation_task
+from app.utils.sqs_utils import VisibilityTimeoutExtender
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +41,8 @@ class SegmentationWorker(Consumer):
             region: AWS region
         """
         self.worker_id = worker_id
+        self.queue_url = queue_url
+        self.region = region
         logger.info(f"Initializing Worker-{worker_id}")
         
         super().__init__(
@@ -50,11 +53,18 @@ class SegmentationWorker(Consumer):
     
     def handle_message(self, message: Message):
         """
-        Process a single SQS message
+        Process a single SQS message with automatic visibility timeout extension.
+        
+        This prevents message duplication by extending the visibility timeout
+        during long-running tasks.
         
         Args:
             message: SQS message containing job details
         """
+        # Get configuration
+        visibility_timeout = get("SQS_VISIBILITY_TIMEOUT", 900)  # 15 minutes
+        heartbeat_interval = get("SQS_HEARTBEAT_INTERVAL", 300)  # 5 minutes
+        
         try:
             # Parse message body
             json_content = json.loads(message.Body)
@@ -71,11 +81,19 @@ class SegmentationWorker(Consumer):
                 f"for manifestation {manifestation_id}"
             )
             
-            # Process the task
-            result = process_manifestation_task(
-                job_id=job_id,
-                manifestation_id=manifestation_id
-            )
+            # Start visibility timeout heartbeat to prevent duplicate processing
+            with VisibilityTimeoutExtender(
+                receipt_handle=message.ReceiptHandle,
+                queue_url=self.queue_url,
+                region=self.region,
+                extension_interval=heartbeat_interval,
+                visibility_timeout=visibility_timeout
+            ):
+                # Process the task
+                result = process_manifestation_task(
+                    job_id=job_id,
+                    manifestation_id=manifestation_id
+                )
             
             logger.info(
                 f"Worker-{self.worker_id}: Successfully completed job {job_id}. "
@@ -148,7 +166,7 @@ def main():
     # Get configuration
     queue_url = get("SQS_QUEUE_URL")
     region = get("AWS_REGION", "us-east-1")
-    num_workers = 4  # Number of worker processes
+    num_workers = 1  # Number of worker processes
     
     if not queue_url:
         logger.error("SQS_QUEUE_URL not configured. Cannot start workers.")
