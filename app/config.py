@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get the current environment (dev, test, or prod)
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'prod').upper()
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'prod').lower()
 
 
 def get_env_var(var_name: str, default=None):

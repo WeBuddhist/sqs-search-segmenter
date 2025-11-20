@@ -166,7 +166,7 @@ def main():
     # Get configuration
     queue_url = get("SQS_QUEUE_URL")
     region = get("AWS_REGION", "us-east-1")
-    num_workers = 1  # Number of worker processes
+    num_workers = 3  # Number of worker processes
     
     if not queue_url:
         logger.error("SQS_QUEUE_URL not configured. Cannot start workers.")
