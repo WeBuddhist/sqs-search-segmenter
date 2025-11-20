@@ -20,7 +20,7 @@ def _initialize_firebase():
             logger.info("Firebase app already initialized")
         except ValueError:
             # App doesn't exist, initialize it
-            cred_path = Config.get("GOOGLE_APPLICATION_CREDENTIALS")
+            cred_path = Config.get("GOOGLE_CLOUD_API")
             storage_bucket = Config.get("FIREBASE_STORAGE_BUCKET")
             
             if not cred_path:

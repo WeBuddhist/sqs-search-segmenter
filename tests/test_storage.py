@@ -2,6 +2,7 @@
 Tests for storage.py - Firebase Storage operations.
 """
 import pytest
+import json
 from unittest.mock import patch, MagicMock, Mock
 from app.storage import Storage, _initialize_firebase
 import firebase_admin
@@ -162,4 +163,72 @@ class TestStorage:
         
         with pytest.raises(Exception, match="Download failed"):
             storage.retrieve_base_text(sample_expression_id, sample_manifestation_id)
+    
+    @patch('app.storage.credentials')
+    @patch('app.storage.firebase_admin')
+    @patch('app.storage.storage')
+    @patch('app.storage.Config')
+    @patch('os.path.exists', return_value=False)
+    def test_storage_initialization_with_json_string(
+        self, mock_exists, mock_config, mock_storage, mock_firebase_admin, mock_credentials
+    ):
+        """Test Storage initialization with JSON string credentials (cloud environment)."""
+        # Sample Firebase credentials as JSON string
+        creds_dict = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "private_key_id": "key123",
+            "private_key": "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n",
+            "client_email": "test@test-project.iam.gserviceaccount.com",
+            "client_id": "123456789",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token"
+        }
+        creds_json = json.dumps(creds_dict)
+        
+        mock_config.get.side_effect = lambda key: {
+            "GOOGLE_APPLICATION_CREDENTIALS": creds_json,
+            "FIREBASE_STORAGE_BUCKET": "test-bucket.appspot.com"
+        }.get(key)
+        
+        # Reset the global flag
+        import app.storage as storage_module
+        storage_module._firebase_initialized = False
+        
+        # Mock firebase_admin functions
+        mock_firebase_admin.get_app.side_effect = ValueError("No app")
+        mock_cred = MagicMock()
+        mock_credentials.Certificate.return_value = mock_cred
+        mock_firebase_admin.initialize_app.return_value = None
+        
+        # Mock storage bucket
+        mock_bucket = MagicMock()
+        mock_storage.bucket.return_value = mock_bucket
+        
+        storage = Storage()
+        assert storage.bucket is not None
+        
+        # Verify initialization was called with parsed JSON dict
+        mock_credentials.Certificate.assert_called_once_with(creds_dict)
+        mock_firebase_admin.initialize_app.assert_called_once_with(
+            mock_cred, {"storageBucket": "test-bucket.appspot.com"}
+        )
+    
+    @patch('app.storage.firebase_admin')
+    @patch('app.storage.Config')
+    @patch('os.path.exists', return_value=False)
+    def test_initialize_firebase_invalid_json(self, mock_exists, mock_config, mock_firebase_admin):
+        """Test initialization with invalid JSON credentials."""
+        mock_config.get.side_effect = lambda key: {
+            "GOOGLE_APPLICATION_CREDENTIALS": "not-a-valid-json-or-path",
+            "FIREBASE_STORAGE_BUCKET": "test-bucket.appspot.com"
+        }.get(key)
+        mock_firebase_admin.get_app.side_effect = ValueError("No app")
+        
+        # Reset the global flag
+        import app.storage as storage_module
+        storage_module._firebase_initialized = False
+        
+        with pytest.raises(ValueError, match="neither a valid file path nor valid JSON"):
+            storage = Storage()
 
