@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from app.neo4j_database import Neo4JDatabase
 from app.storage import Storage
 from app.segmentation import get_search_segmentation, get_segments_with_content
-from app.milvus_database import generate_segments_and_upload_to_vector_db
+from app.milvus_database import generate_segments_and_upload_to_vector_db, delete_segments
 
 
 load_dotenv(override=True)
@@ -102,6 +102,63 @@ def process_manifestation_task(job_id: str, manifestation_id: str) -> Dict[str, 
     except Exception as exc:
         logger.error(
             f"[Job {job_id}] ❌ FAILED processing manifestation {manifestation_id}: {str(exc)}",
+            exc_info=True
+        )
+        
+        # Re-raise to trigger SQS retry
+        raise exc
+
+
+def process_delete_task(job_id: str, segment_ids: list) -> Dict[str, Any]:
+    """
+    Process deletion of segments from Milvus vector database.
+    
+    This function:
+    1. Validates the segment_ids input
+    2. Calls delete_segments to remove segments from Milvus
+    3. Logs the deletion status
+    
+    Args:
+        job_id: UUID of the job (for logging/tracking)
+        segment_ids: List of segment IDs to delete
+        
+    Returns:
+        Dictionary with deletion results
+        
+    Raises:
+        Exception: Any error during deletion (will trigger SQS retry)
+    """
+    logger.info(f"[Job {job_id}] Starting deletion of {len(segment_ids)} segments")
+    
+    try:
+        if not segment_ids:
+            logger.warning(f"[Job {job_id}] No segment IDs provided for deletion")
+            return {
+                "job_id": job_id,
+                "segments_requested": 0,
+                "segments_deleted": 0,
+                "status": "COMPLETED_NO_ACTION"
+            }
+        
+        # Delete segments from Milvus
+        deletion_result = delete_segments(segment_ids)
+        
+        logger.info(
+            f"[Job {job_id}] ✅ Successfully deleted {deletion_result['total_deleted']} "
+            f"out of {deletion_result['total_requested']} segments"
+        )
+        
+        return {
+            "job_id": job_id,
+            "segments_requested": deletion_result['total_requested'],
+            "segments_deleted": deletion_result['total_deleted'],
+            "batches_processed": deletion_result['batches_processed'],
+            "status": "COMPLETED"
+        }
+    
+    except Exception as exc:
+        logger.error(
+            f"[Job {job_id}] ❌ FAILED deleting segments: {str(exc)}",
             exc_info=True
         )
         

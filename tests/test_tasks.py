@@ -4,7 +4,7 @@ Tests for tasks.py - Main task processing business logic.
 import pytest
 from unittest.mock import patch, MagicMock, Mock
 
-from app.tasks import process_manifestation_task
+from app.tasks import process_manifestation_task, process_delete_task
 
 
 class TestProcessManifestationTask:
@@ -345,4 +345,119 @@ class TestProcessManifestationTask:
         
         assert len(segments_content) == 1
         assert len(segments_content[0]["segments"]) == 2
+
+
+class TestProcessDeleteTask:
+    """Test suite for process_delete_task function."""
+    
+    @patch('app.tasks.delete_segments')
+    def test_process_delete_task_success(self, mock_delete_segments):
+        """Test successful deletion of segments."""
+        # Setup mocks
+        mock_delete_segments.return_value = {
+            "total_requested": 5,
+            "total_deleted": 5,
+            "batches_processed": 1
+        }
+        
+        segment_ids = ["seg_001", "seg_002", "seg_003", "seg_004", "seg_005"]
+        
+        # Execute
+        result = process_delete_task(
+            job_id="job_delete_123",
+            segment_ids=segment_ids
+        )
+        
+        # Assertions
+        assert result["status"] == "COMPLETED"
+        assert result["job_id"] == "job_delete_123"
+        assert result["segments_requested"] == 5
+        assert result["segments_deleted"] == 5
+        assert result["batches_processed"] == 1
+        
+        # Verify delete_segments was called with correct arguments
+        mock_delete_segments.assert_called_once_with(segment_ids)
+    
+    @patch('app.tasks.delete_segments')
+    def test_process_delete_task_empty_list(self, mock_delete_segments):
+        """Test deletion with empty segment list."""
+        # Execute
+        result = process_delete_task(
+            job_id="job_delete_456",
+            segment_ids=[]
+        )
+        
+        # Assertions
+        assert result["status"] == "COMPLETED_NO_ACTION"
+        assert result["job_id"] == "job_delete_456"
+        assert result["segments_requested"] == 0
+        assert result["segments_deleted"] == 0
+        
+        # Verify delete_segments was NOT called
+        mock_delete_segments.assert_not_called()
+    
+    @patch('app.tasks.delete_segments')
+    def test_process_delete_task_large_batch(self, mock_delete_segments):
+        """Test deletion with large number of segments."""
+        # Setup mocks
+        mock_delete_segments.return_value = {
+            "total_requested": 1000,
+            "total_deleted": 1000,
+            "batches_processed": 10
+        }
+        
+        segment_ids = [f"seg_{i:04d}" for i in range(1000)]
+        
+        # Execute
+        result = process_delete_task(
+            job_id="job_delete_789",
+            segment_ids=segment_ids
+        )
+        
+        # Assertions
+        assert result["status"] == "COMPLETED"
+        assert result["segments_requested"] == 1000
+        assert result["segments_deleted"] == 1000
+        assert result["batches_processed"] == 10
+    
+    @patch('app.tasks.delete_segments')
+    def test_process_delete_task_partial_failure(self, mock_delete_segments):
+        """Test deletion with partial failures."""
+        # Setup mocks - some segments failed to delete
+        mock_delete_segments.return_value = {
+            "total_requested": 100,
+            "total_deleted": 85,  # 15 failed
+            "batches_processed": 1
+        }
+        
+        segment_ids = [f"seg_{i:03d}" for i in range(100)]
+        
+        # Execute
+        result = process_delete_task(
+            job_id="job_delete_partial",
+            segment_ids=segment_ids
+        )
+        
+        # Assertions
+        assert result["status"] == "COMPLETED"
+        assert result["segments_requested"] == 100
+        assert result["segments_deleted"] == 85
+    
+    @patch('app.tasks.delete_segments')
+    def test_process_delete_task_milvus_error(self, mock_delete_segments):
+        """Test error handling when Milvus deletion fails."""
+        # Setup mocks
+        mock_delete_segments.side_effect = Exception("Milvus connection failed")
+        
+        segment_ids = ["seg_001", "seg_002"]
+        
+        # Execute and verify exception is raised
+        with pytest.raises(Exception, match="Milvus connection failed"):
+            process_delete_task(
+                job_id="job_delete_error",
+                segment_ids=segment_ids
+            )
+        
+        # Verify delete_segments was called
+        mock_delete_segments.assert_called_once_with(segment_ids)
 

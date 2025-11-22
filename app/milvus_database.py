@@ -294,3 +294,72 @@ def generate_segments_and_upload_to_vector_db(segments_content: List[Dict[str, A
     except Exception as exc:
         logger.error(f"Error generating segments and uploading to vector database: {str(exc)}", exc_info=True)
         raise exc
+
+
+def delete_segments(segment_ids: List[str], batch_size: int = 3000) -> Dict[str, Any]:
+    """
+    Delete segments from Milvus vector database by segment IDs.
+    
+    Processes deletion in batches to handle large numbers of segments efficiently.
+    
+    Args:
+        segment_ids: List of segment IDs to delete
+        batch_size: Number of segments to delete per batch (default: 100)
+        
+    Returns:
+        Dictionary with deletion statistics
+        
+    Raises:
+        Exception: If deletion fails
+    """
+    try:
+        client = MilvusClient(uri=milvus_uri, token=milvus_token)
+        
+        total_requested = len(segment_ids)
+        total_deleted = 0
+        batches_processed = 0
+        
+        logger.info(f"Starting deletion of {total_requested} segments in batches of {batch_size}")
+        
+        # Process deletions in batches
+        for i in range(0, len(segment_ids), batch_size):
+            batch = segment_ids[i:i + batch_size]
+            batches_processed += 1
+            
+            try:
+                # Delete segments by IDs
+                client.delete(
+                    collection_name=milvus_collection_name,
+                    ids=batch
+                )
+                
+                batch_count = len(batch)
+                total_deleted += batch_count
+                
+                logger.info(
+                    f"Batch {batches_processed}: Deleted {batch_count} segments "
+                    f"(Progress: {total_deleted}/{total_requested})"
+                )
+                
+            except Exception as batch_error:
+                logger.error(
+                    f"Error deleting batch {batches_processed} (IDs: {batch[:5]}...): {batch_error}",
+                    exc_info=True
+                )
+                # Continue with other batches even if one fails
+                continue
+        
+        logger.info(
+            f"✅ Deletion complete: {total_deleted}/{total_requested} segments deleted "
+            f"in {batches_processed} batch(es)"
+        )
+        
+        return {
+            "total_requested": total_requested,
+            "total_deleted": total_deleted,
+            "batches_processed": batches_processed
+        }
+        
+    except Exception as exc:
+        logger.error(f"Error deleting segments from Milvus: {str(exc)}", exc_info=True)
+        raise exc

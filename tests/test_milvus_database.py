@@ -4,7 +4,7 @@ Tests for milvus_database.py - Milvus vector database operations.
 import pytest
 from unittest.mock import patch, MagicMock, Mock
 
-from app.milvus_database import generate_segments_and_upload_to_vector_db
+from app.milvus_database import generate_segments_and_upload_to_vector_db, delete_segments
 
 
 class TestMilvusDatabase:
@@ -215,4 +215,120 @@ class TestMilvusDatabase:
                 title="Test Title",
                 language="bo"
             )
+
+
+class TestDeleteSegments:
+    """Test suite for delete_segments function."""
+    
+    @patch('app.milvus_database.milvus_collection_name', 'test_collection')
+    @patch('app.milvus_database.milvus_uri', 'http://localhost:19530')
+    @patch('app.milvus_database.milvus_token', 'test_token')
+    @patch('app.milvus_database.MilvusClient')
+    def test_delete_segments_success(self, mock_milvus_client):
+        """Test successful deletion of segments."""
+        mock_client_instance = MagicMock()
+        mock_milvus_client.return_value = mock_client_instance
+        
+        segment_ids = ["seg_001", "seg_002", "seg_003"]
+        
+        result = delete_segments(segment_ids)
+        
+        # Verify MilvusClient was instantiated correctly
+        mock_milvus_client.assert_called_once_with(
+            uri="http://localhost:19530",
+            token="test_token"
+        )
+        
+        # Verify delete was called
+        mock_client_instance.delete.assert_called_once()
+        
+        # Verify call arguments
+        call_args = mock_client_instance.delete.call_args
+        assert call_args[1]["collection_name"] == "test_collection"
+        assert call_args[1]["ids"] == segment_ids
+        
+        # Verify return value
+        assert result["total_requested"] == 3
+        assert result["total_deleted"] == 3
+        assert result["batches_processed"] == 1
+    
+    @patch('app.milvus_database.milvus_collection_name', 'test_collection')
+    @patch('app.milvus_database.milvus_uri', 'http://localhost:19530')
+    @patch('app.milvus_database.milvus_token', 'test_token')
+    @patch('app.milvus_database.MilvusClient')
+    def test_delete_segments_large_batch(self, mock_milvus_client):
+        """Test deletion with multiple batches."""
+        mock_client_instance = MagicMock()
+        mock_milvus_client.return_value = mock_client_instance
+        
+        # Create 250 segment IDs (will be split into 3 batches of 100, 100, 50)
+        segment_ids = [f"seg_{i:03d}" for i in range(250)]
+        
+        result = delete_segments(segment_ids, batch_size=100)
+        
+        # Verify delete was called 3 times
+        assert mock_client_instance.delete.call_count == 3
+        
+        # Verify return value
+        assert result["total_requested"] == 250
+        assert result["total_deleted"] == 250
+        assert result["batches_processed"] == 3
+    
+    @patch('app.milvus_database.milvus_collection_name', 'test_collection')
+    @patch('app.milvus_database.milvus_uri', 'http://localhost:19530')
+    @patch('app.milvus_database.milvus_token', 'test_token')
+    @patch('app.milvus_database.MilvusClient')
+    def test_delete_segments_empty_list(self, mock_milvus_client):
+        """Test deletion with empty segment list."""
+        mock_client_instance = MagicMock()
+        mock_milvus_client.return_value = mock_client_instance
+        
+        result = delete_segments([])
+        
+        # Verify delete was never called
+        mock_client_instance.delete.assert_not_called()
+        
+        # Verify return value
+        assert result["total_requested"] == 0
+        assert result["total_deleted"] == 0
+        assert result["batches_processed"] == 0
+    
+    @patch('app.milvus_database.milvus_collection_name', 'test_collection')
+    @patch('app.milvus_database.milvus_uri', 'http://localhost:19530')
+    @patch('app.milvus_database.milvus_token', 'test_token')
+    @patch('app.milvus_database.MilvusClient')
+    def test_delete_segments_partial_failure(self, mock_milvus_client):
+        """Test deletion with partial batch failures."""
+        mock_client_instance = MagicMock()
+        mock_milvus_client.return_value = mock_client_instance
+        
+        # Make the second batch fail
+        mock_client_instance.delete.side_effect = [
+            None,  # First batch succeeds
+            Exception("Network error"),  # Second batch fails
+            None   # Third batch succeeds
+        ]
+        
+        segment_ids = [f"seg_{i:03d}" for i in range(250)]
+        
+        result = delete_segments(segment_ids, batch_size=100)
+        
+        # Should continue processing despite batch failure
+        assert mock_client_instance.delete.call_count == 3
+        
+        # Only 2 batches succeeded (batch 1: 100, batch 3: 50 = 150 segments)
+        assert result["total_requested"] == 250
+        assert result["total_deleted"] == 150
+        assert result["batches_processed"] == 3
+    
+    @patch('app.milvus_database.milvus_collection_name', 'test_collection')
+    @patch('app.milvus_database.milvus_uri', 'http://localhost:19530')
+    @patch('app.milvus_database.milvus_token', 'test_token')
+    @patch('app.milvus_database.MilvusClient')
+    def test_delete_segments_client_initialization_error(self, mock_milvus_client):
+        """Test handling of Milvus client initialization error."""
+        mock_milvus_client.side_effect = Exception("Connection failed")
+        
+        with pytest.raises(Exception, match="Connection failed"):
+            delete_segments(["seg_001"])
 

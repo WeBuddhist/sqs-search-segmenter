@@ -14,7 +14,7 @@ from aws_sqs_consumer import Consumer, Message
 import json
 
 from app.config import get
-from app.tasks import process_manifestation_task
+from app.tasks import process_manifestation_task, process_delete_task
 from app.utils.sqs_utils import VisibilityTimeoutExtender
 
 # Configure logging
@@ -63,22 +63,17 @@ class SegmentationWorker(Consumer):
         """
         # Get configuration
         visibility_timeout = get("SQS_VISIBILITY_TIMEOUT", 900)  # 15 minutes
-        heartbeat_interval = get("SQS_HEARTBEAT_INTERVAL", 300)  # 5 minutes
+        heartbeat_interval = get("SQS_HEARTBEAT_INTERVAL", 150)  # 5 minutes
         
         try:
             # Parse message body
             json_content = json.loads(message.Body)
             
             job_id = json_content.get('job_id')
-            manifestation_id = json_content.get('manifestation_id')
-            
-            if not manifestation_id:
-                logger.error(f"Worker-{self.worker_id}: Missing manifestation_id in message")
-                raise ValueError("manifestation_id is required")
+            task_type = json_content.get('task_type')  # Default to 'create' for backward compatibility
             
             logger.info(
-                f"Worker-{self.worker_id}: Processing job {job_id} "
-                f"for manifestation {manifestation_id}"
+                f"Worker-{self.worker_id}: Received job {job_id} with task_type '{task_type}'"
             )
             
             # Start visibility timeout heartbeat to prevent duplicate processing
@@ -89,14 +84,47 @@ class SegmentationWorker(Consumer):
                 extension_interval=heartbeat_interval,
                 visibility_timeout=visibility_timeout
             ):
-                # Process the task
-                result = process_manifestation_task(
-                    job_id=job_id,
-                    manifestation_id=manifestation_id
-                )
+                # Route to appropriate task handler based on task_type
+                if task_type == 'create':
+                    manifestation_id = json_content.get('manifestation_id')
+                    
+                    if not manifestation_id:
+                        logger.error(f"Worker-{self.worker_id}: Missing manifestation_id for create task")
+                        raise ValueError("manifestation_id is required for create task")
+                    
+                    logger.info(
+                        f"Worker-{self.worker_id}: Processing CREATE task for manifestation {manifestation_id}"
+                    )
+                    result = process_manifestation_task(
+                        job_id=job_id,
+                        manifestation_id=manifestation_id
+                    )
+                    
+                elif task_type == 'delete':
+                    segment_ids = json_content.get('segment_ids')
+                    
+                    if not segment_ids:
+                        logger.error(f"Worker-{self.worker_id}: Missing segment_ids for delete task")
+                        raise ValueError("segment_ids is required for delete task")
+                    
+                    if not isinstance(segment_ids, list):
+                        logger.error(f"Worker-{self.worker_id}: segment_ids must be a list")
+                        raise ValueError("segment_ids must be a list")
+                    
+                    logger.info(
+                        f"Worker-{self.worker_id}: Processing DELETE task for {len(segment_ids)} segments"
+                    )
+                    result = process_delete_task(
+                        job_id=job_id,
+                        segment_ids=segment_ids
+                    )
+                    
+                else:
+                    logger.error(f"Worker-{self.worker_id}: Unknown task_type '{task_type}'")
+                    raise ValueError(f"Unknown task_type: {task_type}. Must be 'create' or 'delete'")
             
             logger.info(
-                f"Worker-{self.worker_id}: Successfully completed job {job_id}. "
+                f"Worker-{self.worker_id}: Successfully completed job {job_id} ({task_type}). "
                 f"Result: {result}"
             )
             
